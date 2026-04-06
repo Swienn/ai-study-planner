@@ -152,9 +152,16 @@ ${rawText}
   }
 
   // 9. Save document to database
+  const courseId = formData.get("course_id");
   const { data: document, error: docError } = await supabase
     .from("documents")
-    .insert({ id: documentId, user_id: user.id, filename: file.name, raw_text: rawText })
+    .insert({
+      id: documentId,
+      user_id: user.id,
+      filename: file.name,
+      raw_text: rawText,
+      ...(typeof courseId === "string" && courseId ? { course_id: courseId } : {}),
+    })
     .select()
     .single();
 
