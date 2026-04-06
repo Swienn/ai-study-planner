@@ -47,16 +47,21 @@ export async function POST(request: Request) {
     );
   }
 
-  // 4. Read buffer once — reused for magic bytes, text extraction, and storage upload
+  // 4. Read file once, then immediately create two independent copies before any parsing.
+  //    pdfjs-dist (used by pdf-parse) detaches the ArrayBuffer it receives in Node.js,
+  //    so we must isolate the storage copy fully before passing anything to the parser.
   const arrayBuffer = await file.arrayBuffer();
-  const bytes = new Uint8Array(arrayBuffer);
+  // storageBuffer: Node.js Buffer backed by its own memory — safe from pdfjs detachment
+  const storageBuffer = Buffer.from(arrayBuffer.slice(0));
+  // parseBytes: the copy pdfjs is allowed to detach
+  const parseBytes = new Uint8Array(arrayBuffer.slice(0));
 
   // 5. Validate PDF magic bytes (%PDF = 0x25 0x50 0x44 0x46)
   if (
-    bytes[0] !== 0x25 ||
-    bytes[1] !== 0x50 ||
-    bytes[2] !== 0x44 ||
-    bytes[3] !== 0x46
+    storageBuffer[0] !== 0x25 ||
+    storageBuffer[1] !== 0x50 ||
+    storageBuffer[2] !== 0x44 ||
+    storageBuffer[3] !== 0x46
   ) {
     return Response.json(
       { error: "File is not a valid PDF" },
@@ -64,9 +69,9 @@ export async function POST(request: Request) {
     );
   }
 
-  // 6. Extract text
+  // 6. Extract text — pass parseBytes (pdfjs may detach it; storageBuffer is unaffected)
   let rawText: string;
-  const parser = new PDFParse({ data: bytes });
+  const parser = new PDFParse({ data: parseBytes });
   try {
     const result = await parser.getText();
     rawText = result.text.slice(0, MAX_TEXT_CHARS).trim();
@@ -140,7 +145,7 @@ ${rawText}
 
   const { error: storageError } = await supabase.storage
     .from("documents")
-    .upload(storagePath, bytes, { contentType: "application/pdf", upsert: false });
+    .upload(storagePath, storageBuffer, { contentType: "application/pdf", upsert: false });
 
   if (storageError) {
     return Response.json({ error: "File storage failed" }, { status: 500 });
