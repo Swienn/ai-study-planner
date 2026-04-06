@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Topic = { id: string; title: string; summary: string; difficulty: 1 | 2 | 3 };
 type UploadResult = { document: { id: string; filename: string }; topics: Topic[] };
@@ -13,14 +14,9 @@ const difficultyColor = {
 
 const difficultyLabel = { 1: "Easy", 2: "Medium", 3: "Hard" } as const;
 
-export default function CourseUploadWidget({
-  courseId,
-  onUploaded,
-}: {
-  courseId: string;
-  onUploaded: () => void;
-}) {
+export default function CourseUploadWidget({ courseId }: { courseId: string }) {
   const [status, setStatus] = useState<"idle" | "uploading" | "done" | "error">("idle");
+  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<UploadResult | null>(null);
 
@@ -42,7 +38,7 @@ export default function CourseUploadWidget({
       if (!res.ok) { setError(data.error ?? "Upload failed"); setStatus("error"); return; }
       setResult(data);
       setStatus("done");
-      onUploaded();
+      router.refresh(); // refresh server component so document list updates
     } catch {
       setError("Network error — please try again");
       setStatus("error");

@@ -3,6 +3,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import CourseUploadWidget from "./CourseUploadWidget";
 import CoursePlanCreator from "./CoursePlanCreator";
+import DeleteCourseButton from "./DeleteCourseButton";
+import DeleteDocumentButton from "./DeleteDocumentButton";
 
 const colorDot: Record<string, string> = {
   red: "bg-red-500", orange: "bg-orange-500", yellow: "bg-yellow-400",
@@ -60,9 +62,12 @@ export default async function CoursePage({
         <div className="flex items-center gap-2 mb-1">
           <Link href="/dashboard" className="text-sm text-gray-400 hover:text-black">← Dashboard</Link>
         </div>
-        <div className="flex items-center gap-3 mb-8">
-          <span className={`w-4 h-4 rounded-full flex-shrink-0 ${colorDot[course.color] ?? "bg-blue-500"}`} />
-          <h1 className="text-2xl font-bold">{course.title}</h1>
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
+            <span className={`w-4 h-4 rounded-full flex-shrink-0 ${colorDot[course.color] ?? "bg-blue-500"}`} />
+            <h1 className="text-2xl font-bold">{course.title}</h1>
+          </div>
+          <DeleteCourseButton courseId={course.id} />
         </div>
 
         {/* Study plan */}
@@ -92,16 +97,16 @@ export default async function CoursePage({
               {docs.map((doc) => (
                 <div key={doc.id} className="flex items-center justify-between px-4 py-3 border border-gray-200 rounded-xl">
                   <span className="text-sm font-medium truncate mr-4">{doc.filename}</span>
-                  <span className="text-xs text-gray-400 flex-shrink-0">{doc.topic_count} topics</span>
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <span className="text-xs text-gray-400">{doc.topic_count} topics</span>
+                    <DeleteDocumentButton documentId={doc.id} />
+                  </div>
                 </div>
               ))}
             </div>
           )}
 
-          <CourseUploadWidget
-            courseId={course.id}
-            onUploaded={() => {/* server will revalidate on next navigation */}}
-          />
+          <CourseUploadWidget courseId={course.id} />
         </section>
 
       </div>

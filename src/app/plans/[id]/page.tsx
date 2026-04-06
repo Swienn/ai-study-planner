@@ -2,6 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import PlanView from "./PlanView";
+import DeletePlanButton from "./DeletePlanButton";
 
 export default async function PlanPage({
   params,
@@ -15,7 +16,7 @@ export default async function PlanPage({
 
   const { data: plan } = await supabase
     .from("plans")
-    .select("id, title, exam_date, hours_per_day")
+    .select("id, title, exam_date, hours_per_day, course_id")
     .eq("id", id)
     .eq("user_id", user.id)
     .single();
@@ -32,14 +33,18 @@ export default async function PlanPage({
     <main className="flex flex-col items-center min-h-screen p-8">
       <div className="w-full max-w-xl">
         <div className="flex items-center justify-between mb-1">
-          <Link href="/dashboard" className="text-sm text-gray-400 hover:text-black">
-            ← Dashboard
+          <Link
+            href={plan.course_id ? `/courses/${plan.course_id}` : "/dashboard"}
+            className="text-sm text-gray-400 hover:text-black"
+          >
+            ← {plan.course_id ? "Course" : "Dashboard"}
           </Link>
-          <span className="text-sm text-gray-400">
-            {plan.hours_per_day}h / day
-          </span>
+          <span className="text-sm text-gray-400">{plan.hours_per_day}h / day</span>
         </div>
-        <h1 className="text-2xl font-bold mb-1">{plan.title}</h1>
+        <div className="flex items-center justify-between mb-1">
+          <h1 className="text-2xl font-bold">{plan.title}</h1>
+          <DeletePlanButton planId={plan.id} courseId={plan.course_id ?? null} />
+        </div>
         <p className="text-sm text-gray-500 mb-8">
           Exam on{" "}
           {new Date(plan.exam_date + "T00:00:00").toLocaleDateString("en-GB", {

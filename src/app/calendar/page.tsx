@@ -8,43 +8,41 @@ export default async function CalendarPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Fetch all plan items for this user with course info
-  const { data: userPlans } = await supabase
-    .from("plans")
-    .select("id, title, course_id, courses(id, title, color)")
-    .eq("user_id", user.id);
+  // Fetch plans, courses, and plan_items in separate queries to avoid fragile nested joins
+  const [{ data: userPlans }, { data: courses }] = await Promise.all([
+    supabase.from("plans").select("id, title, course_id").eq("user_id", user.id),
+    supabase.from("courses").select("id, title, color").eq("user_id", user.id),
+  ]);
 
-  const planIds = (userPlans ?? []).map(p => p.id);
-
+  const planIds = (userPlans ?? []).map((p) => p.id);
   let items: CalendarItem[] = [];
 
   if (planIds.length > 0) {
     const { data: planItems } = await supabase
       .from("plan_items")
-      .select("id, date, status, topic_id, plan_id, topics(title)")
+      .select("id, date, status, plan_id, topics(id, title)")
       .in("plan_id", planIds)
       .order("date");
 
-    // Build a lookup from plan_id to course info
-    const planInfo = Object.fromEntries(
-      (userPlans ?? []).map(p => {
-        const course = p.courses as unknown as { id: string; title: string; color: string } | null;
-        return [p.id, { plan_title: p.title, course }];
-      })
-    );
+    // Build lookup maps
+    const courseMap = Object.fromEntries((courses ?? []).map((c) => [c.id, c]));
+    const planMap = Object.fromEntries((userPlans ?? []).map((p) => [p.id, p]));
 
-    items = (planItems ?? []).map(item => {
-      const info = planInfo[item.plan_id];
-      const topic = item.topics as unknown as { title: string } | null;
+    items = (planItems ?? []).map((item) => {
+      const plan = planMap[item.plan_id];
+      const course = plan?.course_id ? courseMap[plan.course_id] ?? null : null;
+      const topicsRaw = item.topics;
+      const topic = Array.isArray(topicsRaw) ? topicsRaw[0] : topicsRaw;
+
       return {
         item_id: item.id,
         date: item.date,
         status: item.status as CalendarItem["status"],
-        topic_title: topic?.title ?? "Topic",
+        topic_title: (topic as { title?: string } | null)?.title ?? "Topic",
         plan_id: item.plan_id,
-        course_id: info?.course?.id ?? null,
-        course_title: info?.course?.title ?? null,
-        course_color: info?.course?.color ?? null,
+        course_id: course?.id ?? null,
+        course_title: course?.title ?? null,
+        course_color: course?.color ?? null,
       };
     });
   }
@@ -55,9 +53,7 @@ export default async function CalendarPage() {
     <main className="flex flex-col items-center min-h-screen p-8">
       <div className="w-full max-w-xl">
         <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <Link href="/dashboard" className="text-sm text-gray-400 hover:text-black">← Dashboard</Link>
-          </div>
+          <Link href="/dashboard" className="text-sm text-gray-400 hover:text-black">← Dashboard</Link>
           <h1 className="text-2xl font-bold">Calendar</h1>
           <div className="w-24" />
         </div>
