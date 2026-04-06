@@ -1,6 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { schedulePlan } from "@/lib/planScheduler";
 
+function addDays(dateStr: string, days: number): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(y, m - 1, d + days);
+  return dt.toISOString().split("T")[0];
+}
+
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
@@ -9,7 +15,7 @@ export async function POST(request: Request) {
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await request.json();
-  const { course_id, document_id, title, exam_date, hours_per_day } = body;
+  const { course_id, document_id, title, exam_date, start_date, hours_per_day } = body;
 
   if (!title || !exam_date || !hours_per_day || (!course_id && !document_id)) {
     return Response.json({ error: "Missing required fields" }, { status: 400 });
@@ -98,9 +104,10 @@ export async function POST(request: Request) {
     });
   }
 
-  // Schedule topics across days
+  // Schedule topics across days — use provided start_date or default to tomorrow
   const todayStr = new Date().toISOString().split("T")[0];
-  const scheduled = schedulePlan(topicIds, todayStr, exam_date, hours_per_day, existingLoad);
+  const startStr = start_date && start_date > todayStr ? start_date : addDays(todayStr, 1);
+  const scheduled = schedulePlan(topicIds, startStr, exam_date, hours_per_day, existingLoad);
 
   // Create plan
   const { data: plan, error: planError } = await supabase

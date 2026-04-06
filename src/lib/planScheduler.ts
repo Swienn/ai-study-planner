@@ -18,31 +18,31 @@ function daysBetween(a: string, b: string): number {
 }
 
 /**
- * Distributes topics across days from tomorrow until (but not including) examDate,
+ * Distributes topics across days from startDate until (but not including) examDate,
  * respecting capacity limits and existing load from other plans.
  *
  * @param topicIds       - topic IDs in desired study order
- * @param todayStr       - today's date as YYYY-MM-DD
- * @param examDateStr    - exam date as YYYY-MM-DD
+ * @param startDateStr   - first day to schedule topics (YYYY-MM-DD)
+ * @param examDateStr    - exam date as YYYY-MM-DD (excluded)
  * @param hoursPerDay    - hours the student plans to study per day
  * @param existingLoad   - map of date → count of items already scheduled (from other plans)
  */
 export function schedulePlan(
   topicIds: string[],
-  todayStr: string,
+  startDateStr: string,
   examDateStr: string,
   hoursPerDay: number,
   existingLoad: Map<string, number>
 ): ScheduledItem[] {
   const maxPerDay = Math.max(2, Math.ceil(hoursPerDay));
-  const totalDays = Math.max(1, daysBetween(todayStr, examDateStr));
+  const totalDays = Math.max(1, daysBetween(startDateStr, examDateStr));
 
-  // Build list of candidate dates (tomorrow up to but not including exam day)
+  // Build list of candidate dates (startDate up to but not including exam day)
   const candidates: string[] = [];
-  for (let i = 1; i < totalDays; i++) {
-    candidates.push(addDays(todayStr, i));
+  for (let i = 0; i < totalDays; i++) {
+    candidates.push(addDays(startDateStr, i));
   }
-  if (candidates.length === 0) candidates.push(todayStr); // edge: exam is today
+  if (candidates.length === 0) candidates.push(startDateStr); // edge: exam is on start date
 
   const result: ScheduledItem[] = [];
   const newLoad = new Map<string, number>(); // slots added by this plan so far

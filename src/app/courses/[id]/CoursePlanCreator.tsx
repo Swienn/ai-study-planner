@@ -17,6 +17,7 @@ export default function CoursePlanCreator({
 }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState(courseTitle);
+  const [startDate, setStartDate] = useState("");
   const [examDate, setExamDate] = useState("");
   const [hoursPerDay, setHoursPerDay] = useState("2");
   const [loading, setLoading] = useState(false);
@@ -36,6 +37,7 @@ export default function CoursePlanCreator({
       body: JSON.stringify({
         course_id: courseId,
         title,
+        start_date: startDate || undefined,
         exam_date: examDate,
         hours_per_day: parseFloat(hoursPerDay),
       }),
@@ -98,11 +100,21 @@ export default function CoursePlanCreator({
       </div>
       <div className="flex gap-3">
         <div className="flex flex-col gap-1 flex-1">
+          <label className="text-xs font-medium text-gray-600">Start date <span className="text-gray-400">(optional)</span></label>
+          <input
+            type="date"
+            min={today}
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black bg-white"
+          />
+        </div>
+        <div className="flex flex-col gap-1 flex-1">
           <label className="text-xs font-medium text-gray-600">Exam date</label>
           <input
             type="date"
             required
-            min={today}
+            min={startDate || today}
             value={examDate}
             onChange={(e) => setExamDate(e.target.value)}
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black bg-white"
