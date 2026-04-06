@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import UploadWidget from "./UploadWidget";
 import PlanCreator from "./PlanCreator";
+import DeleteDocumentButton from "../courses/[id]/DeleteDocumentButton";
 
 const colorDot: Record<string, string> = {
   red: "bg-red-500", orange: "bg-orange-500", yellow: "bg-yellow-400",
@@ -152,7 +153,10 @@ export default async function DashboardPage() {
                       <p className="font-medium text-sm">{doc.filename}</p>
                       <p className="text-xs text-gray-400 mt-0.5">{doc.topic_count} topics</p>
                     </div>
-                    <PlanCreator document={doc} />
+                    <div className="flex items-center gap-3">
+                      <PlanCreator document={doc} />
+                      <DeleteDocumentButton documentId={doc.id} />
+                    </div>
                   </div>
                 </div>
               ))}
