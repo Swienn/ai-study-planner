@@ -1,51 +1,67 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import CalendarClient, { type CalendarItem } from "./CalendarClient";
+import AppLayout from "@/components/AppLayout";
+import CalendarClient, {
+  type CalendarItem,
+  type CourseWithPlan,
+} from "./CalendarClient";
 
 export default async function CalendarPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
   const [{ data: userPlans }, { data: courses }] = await Promise.all([
-    supabase.from("plans").select("id, title, course_id").eq("user_id", user.id),
-    supabase.from("courses").select("id, title, color").eq("user_id", user.id),
+    supabase
+      .from("plans")
+      .select("id, title, course_id")
+      .eq("user_id", user.id),
+    supabase
+      .from("courses")
+      .select("id, title, color")
+      .eq("user_id", user.id)
+      .order("created_at"),
   ]);
 
   const planIds = (userPlans ?? []).map((p) => p.id);
   let items: CalendarItem[] = [];
 
   if (planIds.length > 0) {
-    // Fetch plan_items without topic join — fetch topics separately to avoid FK ambiguity
+    // Fetch plan_documents first to get document IDs
+    const { data: planDocs } = await supabase
+      .from("plan_documents")
+      .select("document_id")
+      .in("plan_id", planIds);
+
+    const docIds = (planDocs ?? []).map((r) => r.document_id);
+
     const [{ data: planItems }, { data: allTopics }] = await Promise.all([
       supabase
         .from("plan_items")
         .select("id, date, status, plan_id, topic_id")
         .in("plan_id", planIds)
         .order("date"),
-      supabase
-        .from("topics")
-        .select("id, title, document_id, documents(course_id)")
-        .in("document_id",
-          // get all document_ids referenced by these plans via plan_documents
-          (await supabase
-            .from("plan_documents")
-            .select("document_id")
-            .in("plan_id", planIds)
-          ).data?.map(r => r.document_id) ?? []
-        ),
+      docIds.length > 0
+        ? supabase.from("topics").select("id, title").in("document_id", docIds)
+        : Promise.resolve({ data: [] as { id: string; title: string }[] }),
     ]);
 
-    const topicMap = Object.fromEntries((allTopics ?? []).map((t) => [t.id, t]));
-    const courseMap = Object.fromEntries((courses ?? []).map((c) => [c.id, c]));
-    const planMap = Object.fromEntries((userPlans ?? []).map((p) => [p.id, p]));
+    const topicMap = Object.fromEntries(
+      (allTopics ?? []).map((t) => [t.id, t])
+    );
+    const courseMap = Object.fromEntries(
+      (courses ?? []).map((c) => [c.id, c])
+    );
+    const planMap = Object.fromEntries(
+      (userPlans ?? []).map((p) => [p.id, p])
+    );
 
     items = (planItems ?? []).map((item) => {
       const topic = topicMap[item.topic_id];
       const plan = planMap[item.plan_id];
-      const course = plan?.course_id ? courseMap[plan.course_id] ?? null : null;
-
+      const course = plan?.course_id ? (courseMap[plan.course_id] ?? null) : null;
       return {
         item_id: item.id,
         date: item.date,
@@ -59,30 +75,22 @@ export default async function CalendarPage() {
     });
   }
 
-  const now = new Date();
+  const coursesWithPlan: CourseWithPlan[] = (courses ?? []).map((c) => {
+    const plan = (userPlans ?? []).find((p) => p.course_id === c.id);
+    return {
+      id: c.id,
+      title: c.title,
+      color: c.color,
+      planId: plan?.id ?? null,
+    };
+  });
 
   return (
-    <main className="flex flex-col items-center min-h-screen p-8">
-      <div className="w-full max-w-xl">
-        <div className="flex items-center justify-between mb-8">
-          <Link href="/dashboard" className="text-sm text-gray-400 hover:text-black">← Dashboard</Link>
-          <h1 className="text-2xl font-bold">Calendar</h1>
-          <div className="w-24" />
-        </div>
-
-        {items.length === 0 ? (
-          <div className="text-center py-16 text-gray-400">
-            <p className="mb-2">No study plans yet.</p>
-            <Link href="/dashboard" className="text-sm text-black underline">Go to dashboard →</Link>
-          </div>
-        ) : (
-          <CalendarClient
-            items={items}
-            initialYear={now.getFullYear()}
-            initialMonth={now.getMonth()}
-          />
-        )}
+    <AppLayout>
+      <div className="flex items-center justify-between px-6 pt-6 mb-2">
+        <h1 className="text-2xl font-bold text-slate-900">Calendar</h1>
       </div>
-    </main>
+      <CalendarClient items={items} courses={coursesWithPlan} />
+    </AppLayout>
   );
 }

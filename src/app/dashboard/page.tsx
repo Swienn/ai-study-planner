@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import AppLayout from "@/components/AppLayout";
 import UploadWidget from "./UploadWidget";
 import PlanCreator from "./PlanCreator";
 import DeleteDocumentButton from "../courses/[id]/DeleteDocumentButton";
@@ -57,58 +58,43 @@ export default async function DashboardPage() {
   }));
 
   return (
-    <main className="flex flex-col items-center min-h-screen p-8">
-      <div className="w-full max-w-xl">
-
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-2xl font-bold">Dashboard</h1>
-          <div className="flex items-center gap-3">
-            <Link href="/calendar" className="text-sm text-gray-500 hover:text-black transition-colors">
-              📅 Calendar
-            </Link>
-            <span className="text-sm text-gray-400">{user.email}</span>
-            <form action="/api/auth/signout" method="POST">
-              <button type="submit" className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                Sign out
-              </button>
-            </form>
-          </div>
-        </div>
+    <AppLayout>
+      <div className="p-6 max-w-2xl">
+        <h1 className="text-2xl font-bold text-slate-900 mb-8">Manage courses</h1>
 
         {/* Courses */}
         <section className="mb-10">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold">Courses</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-slate-800">Courses</h2>
             <Link
               href="/courses/new"
-              className="text-sm px-3 py-1.5 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
+              className="text-sm px-3 py-1.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors font-medium"
             >
               + New course
             </Link>
           </div>
 
           {courseList.length === 0 ? (
-            <p className="text-sm text-gray-400">No courses yet. Create one to group your study material.</p>
+            <p className="text-sm text-slate-400">No courses yet. Create one to group your study material.</p>
           ) : (
             <div className="flex flex-col gap-2">
               {courseList.map(course => (
                 <Link
                   key={course.id}
                   href={`/courses/${course.id}`}
-                  className="flex items-center gap-3 p-4 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+                  className="flex items-center gap-3 p-4 border border-slate-200 rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all"
                 >
                   <span className={`w-3 h-3 rounded-full flex-shrink-0 ${colorDot[course.color] ?? "bg-blue-500"}`} />
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm">{course.title}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">
+                    <p className="font-medium text-sm text-slate-800">{course.title}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">
                       {course.doc_count} {course.doc_count === 1 ? "document" : "documents"}
                       {course.plan && (
                         <> · Exam {new Date(course.plan.exam_date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</>
                       )}
                     </p>
                   </div>
-                  <span className="text-gray-400 text-sm">→</span>
+                  <span className="text-slate-400 text-sm">→</span>
                 </Link>
               ))}
             </div>
@@ -118,22 +104,22 @@ export default async function DashboardPage() {
         {/* Legacy: uncategorised plans */}
         {loosePlans.length > 0 && (
           <section className="mb-10">
-            <h2 className="text-lg font-semibold mb-3">Other plans</h2>
+            <h2 className="text-lg font-semibold text-slate-800 mb-4">Other plans</h2>
             <div className="flex flex-col gap-2">
               {loosePlans.map(plan => (
                 <Link
                   key={plan.id}
                   href={`/plans/${plan.id}`}
-                  className="flex items-center justify-between p-4 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+                  className="flex items-center justify-between p-4 border border-slate-200 rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all"
                 >
                   <div>
-                    <p className="font-medium text-sm">{plan.title}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">
+                    <p className="font-medium text-sm text-slate-800">{plan.title}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">
                       Exam {new Date(plan.exam_date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                       {" · "}{plan.item_count} topics
                     </p>
                   </div>
-                  <span className="text-gray-400 text-sm">→</span>
+                  <span className="text-slate-400 text-sm">→</span>
                 </Link>
               ))}
             </div>
@@ -143,15 +129,15 @@ export default async function DashboardPage() {
         {/* Legacy: uncategorised documents */}
         {looseDocs.length > 0 && (
           <section className="mb-10">
-            <h2 className="text-lg font-semibold mb-3">Uncategorised documents</h2>
-            <p className="text-xs text-gray-400 mb-3">These were uploaded before courses. Create a plan or move them to a course.</p>
+            <h2 className="text-lg font-semibold text-slate-800 mb-1">Uncategorised documents</h2>
+            <p className="text-xs text-slate-400 mb-4">These were uploaded before courses. Create a plan or move them to a course.</p>
             <div className="flex flex-col gap-3">
               {looseDocs.map(doc => (
-                <div key={doc.id} className="p-4 border border-gray-200 rounded-xl">
+                <div key={doc.id} className="p-4 border border-slate-200 rounded-xl">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-sm">{doc.filename}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">{doc.topic_count} topics</p>
+                      <p className="font-medium text-sm text-slate-800">{doc.filename}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">{doc.topic_count} topics</p>
                     </div>
                     <div className="flex items-center gap-3">
                       <PlanCreator document={doc} />
@@ -164,15 +150,14 @@ export default async function DashboardPage() {
           </section>
         )}
 
-        {/* Quick upload (uncategorised) — only show if no courses */}
+        {/* Quick upload — only show if no courses */}
         {courseList.length === 0 && (
           <section>
-            <h2 className="text-lg font-semibold mb-3">Upload material</h2>
+            <h2 className="text-lg font-semibold text-slate-800 mb-3">Upload material</h2>
             <UploadWidget />
           </section>
         )}
-
       </div>
-    </main>
+    </AppLayout>
   );
 }

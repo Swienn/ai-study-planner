@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { schedulePlan } from "@/lib/planScheduler";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 function addDays(dateStr: string, days: number): string {
   const [y, m, d] = dateStr.split("-").map(Number);
@@ -14,11 +15,34 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
+  // Rate limit — max 10 plan creations per minute per user
+  const allowed = await checkRateLimit(supabase, user.id, "plans", 10, 60_000);
+  if (!allowed) {
+    return Response.json(
+      { error: "Too many requests — wait a minute before trying again" },
+      { status: 429 }
+    );
+  }
+
   const body = await request.json();
   const { course_id, document_id, title, exam_date, start_date, hours_per_day } = body;
 
   if (!title || !exam_date || !hours_per_day || (!course_id && !document_id)) {
     return Response.json({ error: "Missing required fields" }, { status: 400 });
+  }
+
+  // Validate inputs
+  const safeTitle = String(title).trim().slice(0, 120);
+  if (!safeTitle) return Response.json({ error: "Title is required" }, { status: 400 });
+
+  const parsedHours = parseFloat(hours_per_day);
+  if (isNaN(parsedHours) || parsedHours < 0.5 || parsedHours > 12) {
+    return Response.json({ error: "hours_per_day must be between 0.5 and 12" }, { status: 400 });
+  }
+
+  const todayValidation = new Date().toISOString().split("T")[0];
+  if (typeof exam_date !== "string" || exam_date <= todayValidation) {
+    return Response.json({ error: "Exam date must be in the future" }, { status: 400 });
   }
 
   // Fetch topics — either from all documents in a course, or from a single document
@@ -107,16 +131,16 @@ export async function POST(request: Request) {
   // Schedule topics across days — use provided start_date or default to tomorrow
   const todayStr = new Date().toISOString().split("T")[0];
   const startStr = start_date && start_date > todayStr ? start_date : addDays(todayStr, 1);
-  const scheduled = schedulePlan(topicIds, startStr, exam_date, hours_per_day, existingLoad);
+  const scheduled = schedulePlan(topicIds, startStr, exam_date, parsedHours, existingLoad);
 
   // Create plan
   const { data: plan, error: planError } = await supabase
     .from("plans")
     .insert({
       user_id: user.id,
-      title,
+      title: safeTitle,
       exam_date,
-      hours_per_day,
+      hours_per_day: parsedHours,
       ...(course_id ? { course_id } : {}),
     })
     .select()

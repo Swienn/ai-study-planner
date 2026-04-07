@@ -34,7 +34,8 @@ export function schedulePlan(
   hoursPerDay: number,
   existingLoad: Map<string, number>
 ): ScheduledItem[] {
-  const maxPerDay = Math.max(2, Math.ceil(hoursPerDay));
+  // ~30 minutes per topic, minimum 3 per day
+  const basePerDay = Math.max(3, Math.round(hoursPerDay * 2));
   const totalDays = Math.max(1, daysBetween(startDateStr, examDateStr));
 
   // Build list of candidate dates (startDate up to but not including exam day)
@@ -42,38 +43,37 @@ export function schedulePlan(
   for (let i = 0; i < totalDays; i++) {
     candidates.push(addDays(startDateStr, i));
   }
-  if (candidates.length === 0) candidates.push(startDateStr); // edge: exam is on start date
+  if (candidates.length === 0) candidates.push(startDateStr);
+
+  // Calculate per-day capacity respecting existing load from other plans
+  const capacityPerDay = candidates.map((date) =>
+    Math.max(0, basePerDay - (existingLoad.get(date) ?? 0))
+  );
+  const totalCapacity = capacityPerDay.reduce((a, b) => a + b, 0);
+
+  // If topics exceed capacity, spread the overflow evenly across all days
+  let effectiveCapacity = [...capacityPerDay];
+  if (topicIds.length > totalCapacity && candidates.length > 0) {
+    const overflow = topicIds.length - totalCapacity;
+    const extraPerDay = Math.ceil(overflow / candidates.length);
+    effectiveCapacity = capacityPerDay.map((cap) => cap + extraPerDay);
+  }
 
   const result: ScheduledItem[] = [];
-  const newLoad = new Map<string, number>(); // slots added by this plan so far
   let topicIndex = 0;
 
   for (let di = 0; di < candidates.length; di++) {
     if (topicIndex >= topicIds.length) break;
-
     const date = candidates[di];
-    const existing = existingLoad.get(date) ?? 0;
-    const added = newLoad.get(date) ?? 0;
-    const totalLoad = existing + added;
-    const remainingTopics = topicIds.length - topicIndex;
-    const remainingDates = candidates.length - di;
-
-    // Skip this day if it's full AND there's enough room on later days
-    const canDefer = remainingTopics <= remainingDates * maxPerDay;
-    if (totalLoad >= maxPerDay && canDefer) continue;
-
-    // How many topics to assign today
-    const slots = Math.max(1, maxPerDay - totalLoad);
-    const assign = Math.min(slots, remainingTopics);
-
+    const slots = effectiveCapacity[di];
+    const assign = Math.min(slots, topicIds.length - topicIndex);
     for (let s = 0; s < assign; s++) {
       result.push({ topic_id: topicIds[topicIndex], date });
       topicIndex++;
-      newLoad.set(date, (newLoad.get(date) ?? 0) + 1);
     }
   }
 
-  // Safety: if topics remain after all days, pile onto the last candidate
+  // Safety fallback (should not be reached with overflow spreading)
   if (topicIndex < topicIds.length) {
     const lastDate = candidates[candidates.length - 1];
     while (topicIndex < topicIds.length) {

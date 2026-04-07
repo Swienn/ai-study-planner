@@ -2,6 +2,43 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## What is AI Study Planner?
+
+AI Study Planner is a web app that turns uploaded PDFs into personalised, day-by-day study schedules. It's built by Sven (SWE student at UvA) as a portfolio project and potential side business targeting students.
+
+**The core problem it solves**: students have an exam date, a pile of PDFs, and no idea how to spread the material across the days they have left.
+
+**The product flow**:
+1. A student creates a **Course** (e.g. "Linear Algebra") and assigns it a colour.
+2. They upload one or more **PDFs** — lecture slides, textbooks, notes. Claude (Haiku) reads each PDF and extracts a structured list of **topics** with title, summary, and difficulty.
+3. They create a **Study Plan** by picking a start date, exam date, and daily hours budget. The scheduler distributes topics evenly across available days, respecting the hours limit and automatically working around days already filled by other courses.
+4. They study day by day — marking topics as done or skipped.
+5. The central **Calendar** gives a bird's-eye view of every course's plan across the week, colour-coded by course.
+
+**Who it's for**: university students juggling multiple courses, each with its own exam date. The conflict-aware scheduler is the key differentiator — adding a new course automatically fits around existing ones.
+
+**Business model vision**: Freemium (free tier: limited plans/month), Premium Student (€7.99–12.99/mo), Semester Pass (€19.99–29.99). Potential B2B expansion for study coaches managing multiple students.
+
+## UI architecture
+
+All authenticated pages use a shared **AppLayout** (sidebar + topbar):
+
+```
+components/
+  AppLayout.tsx       → wraps every authenticated page
+  AppSidebar.tsx      → left nav: Dashboard, Calendar, Courses links
+  AppTopBar.tsx       → top bar with page title and user menu
+  SidebarClient.tsx   → client-side sidebar state (mobile toggle etc.)
+```
+
+Design system: **indigo** as primary accent (`indigo-600`), white backgrounds, `rounded-xl` inputs and buttons, `slate-*` for text hierarchy, Geist Sans font.
+
+After login/signup, users are directed to `/calendar` (not `/dashboard`).
+
+The **Calendar** (`/calendar`) uses a week-view grid: one row per course, seven columns for the days of the week. Users navigate between weeks with prev/next arrows. Clicking a day cell deep-links to the plan's day view (`/plans/[id]?date=YYYY-MM-DD`).
+
+The **Plan view** (`/plans/[id]`) shows topics for a specific date (day-view mode) when a `?date=` param is present. It has tabs per uploaded document so students can focus on one PDF at a time.
+
 ## Commands
 
 ```bash

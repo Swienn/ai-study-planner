@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { anthropic } from "@/lib/anthropic";
+import { checkRateLimit } from "@/lib/rateLimit";
 import { PDFParse } from "pdf-parse";
 import { randomUUID } from "crypto";
 
@@ -7,6 +8,9 @@ export const runtime = "nodejs";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 const MAX_TEXT_CHARS = 50_000;
+const MAX_TOPICS = 20;           // hard cap on Claude output
+const MAX_DOCS_PER_COURSE = 10;  // prevent unbounded Claude spend per course
+const MAX_FILENAME_LENGTH = 255;
 
 type RawTopic = {
   title: string;
@@ -26,7 +30,16 @@ export async function POST(request: Request) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // 2. Parse form data
+  // 2. Rate limit — max 5 uploads per minute per user
+  const allowed = await checkRateLimit(supabase, user.id, "documents", 5, 60_000);
+  if (!allowed) {
+    return Response.json(
+      { error: "Too many uploads — wait a minute before trying again" },
+      { status: 429 }
+    );
+  }
+
+  // 3. Parse form data
   let formData: FormData;
   try {
     formData = await request.formData();
@@ -39,7 +52,38 @@ export async function POST(request: Request) {
     return Response.json({ error: "No file provided" }, { status: 400 });
   }
 
-  // 3. Validate file size
+  // 4. Validate and sanitize course_id if provided
+  const rawCourseId = formData.get("course_id");
+  const courseId = typeof rawCourseId === "string" && rawCourseId.trim() ? rawCourseId.trim() : null;
+
+  if (courseId) {
+    // Verify the course belongs to this user
+    const { data: course } = await supabase
+      .from("courses")
+      .select("id")
+      .eq("id", courseId)
+      .eq("user_id", user.id)
+      .single();
+
+    if (!course) {
+      return Response.json({ error: "Course not found" }, { status: 404 });
+    }
+
+    // Enforce max documents per course to bound total Claude token spend
+    const { count: docCount } = await supabase
+      .from("documents")
+      .select("id", { count: "exact", head: true })
+      .eq("course_id", courseId);
+
+    if ((docCount ?? 0) >= MAX_DOCS_PER_COURSE) {
+      return Response.json(
+        { error: `Maximum ${MAX_DOCS_PER_COURSE} documents per course` },
+        { status: 400 }
+      );
+    }
+  }
+
+  // 5. Validate file size
   if (file.size > MAX_FILE_SIZE) {
     return Response.json(
       { error: "File too large — maximum size is 10 MB" },
@@ -47,7 +91,7 @@ export async function POST(request: Request) {
     );
   }
 
-  // 4. Read file once, then immediately create two independent copies before any parsing.
+  // 6. Read file once, then immediately create two independent copies before any parsing.
   //    pdfjs-dist (used by pdf-parse) detaches the ArrayBuffer it receives in Node.js,
   //    so we must isolate the storage copy fully before passing anything to the parser.
   const arrayBuffer = await file.arrayBuffer();
@@ -56,7 +100,7 @@ export async function POST(request: Request) {
   // parseBytes: the copy pdfjs is allowed to detach
   const parseBytes = new Uint8Array(arrayBuffer.slice(0));
 
-  // 5. Validate PDF magic bytes (%PDF = 0x25 0x50 0x44 0x46)
+  // 7. Validate PDF magic bytes (%PDF = 0x25 0x50 0x44 0x46)
   if (
     storageBuffer[0] !== 0x25 ||
     storageBuffer[1] !== 0x50 ||
@@ -69,7 +113,7 @@ export async function POST(request: Request) {
     );
   }
 
-  // 6. Extract text — pass parseBytes (pdfjs may detach it; storageBuffer is unaffected)
+  // 8. Extract text — pass parseBytes (pdfjs may detach it; storageBuffer is unaffected)
   let rawText: string;
   const parser = new PDFParse({ data: parseBytes });
   try {
@@ -91,7 +135,7 @@ export async function POST(request: Request) {
     );
   }
 
-  // 7. Extract topics via Claude
+  // 9. Extract topics via Claude
   let topics: RawTopic[];
   try {
     const message = await anthropic.messages.create({
@@ -132,6 +176,10 @@ ${rawText}
       if (!match) throw new Error("Claude did not return valid JSON");
       topics = JSON.parse(match[0]);
     }
+
+    if (!Array.isArray(topics)) throw new Error("Topics is not an array");
+    // Hard cap — regardless of what Claude returns
+    topics = topics.slice(0, MAX_TOPICS);
   } catch {
     return Response.json(
       { error: "Topic extraction failed — please try again" },
@@ -139,7 +187,7 @@ ${rawText}
     );
   }
 
-  // 8. Upload PDF to Supabase Storage
+  // 10. Upload PDF to Supabase Storage
   const documentId = randomUUID();
   const storagePath = `${user.id}/${documentId}.pdf`;
 
@@ -151,16 +199,16 @@ ${rawText}
     return Response.json({ error: "File storage failed" }, { status: 500 });
   }
 
-  // 9. Save document to database
-  const courseId = formData.get("course_id");
+  // 11. Save document to database
+  const safeFilename = file.name.slice(0, MAX_FILENAME_LENGTH);
   const { data: document, error: docError } = await supabase
     .from("documents")
     .insert({
       id: documentId,
       user_id: user.id,
-      filename: file.name,
+      filename: safeFilename,
       raw_text: rawText,
-      ...(typeof courseId === "string" && courseId ? { course_id: courseId } : {}),
+      ...(courseId ? { course_id: courseId } : {}),
     })
     .select()
     .single();
@@ -170,7 +218,7 @@ ${rawText}
     return Response.json({ error: "Database write failed" }, { status: 500 });
   }
 
-  // 10. Save topics to database
+  // 12. Save topics to database
   const topicRows = topics.map((t) => ({
     document_id: documentId,
     title: String(t.title).slice(0, 60),

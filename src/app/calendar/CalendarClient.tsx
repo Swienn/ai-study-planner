@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export type CalendarItem = {
   item_id: string;
@@ -14,183 +14,275 @@ export type CalendarItem = {
   course_color: string | null;
 };
 
+export type CourseWithPlan = {
+  id: string;
+  title: string;
+  color: string;
+  planId: string | null;
+};
+
 const colorDot: Record<string, string> = {
-  red: "bg-red-500", orange: "bg-orange-500", yellow: "bg-yellow-400",
-  green: "bg-green-500", blue: "bg-blue-500", purple: "bg-purple-500",
-};
-const colorBadge: Record<string, string> = {
-  red: "bg-red-100 text-red-700", orange: "bg-orange-100 text-orange-700",
-  yellow: "bg-yellow-100 text-yellow-700", green: "bg-green-100 text-green-700",
-  blue: "bg-blue-100 text-blue-700", purple: "bg-purple-100 text-purple-700",
+  red: "bg-red-500",
+  orange: "bg-orange-500",
+  yellow: "bg-yellow-400",
+  green: "bg-green-500",
+  blue: "bg-blue-500",
+  purple: "bg-purple-500",
 };
 
-function getDaysInMonth(year: number, month: number) {
-  return new Date(year, month + 1, 0).getDate();
-}
-function getFirstDayOfMonth(year: number, month: number) {
-  // 0=Sun, shift to Mon=0
-  return (new Date(year, month, 1).getDay() + 6) % 7;
+const colorCell: Record<string, string> = {
+  red: "ring-red-300 bg-red-50 hover:ring-red-400",
+  orange: "ring-orange-300 bg-orange-50 hover:ring-orange-400",
+  yellow: "ring-yellow-300 bg-yellow-50 hover:ring-yellow-400",
+  green: "ring-green-300 bg-green-50 hover:ring-green-400",
+  blue: "ring-blue-300 bg-blue-50 hover:ring-blue-400",
+  purple: "ring-purple-300 bg-purple-50 hover:ring-purple-400",
+};
+
+const colorCount: Record<string, string> = {
+  red: "text-red-700",
+  orange: "text-orange-700",
+  yellow: "text-yellow-700",
+  green: "text-green-700",
+  blue: "text-blue-700",
+  purple: "text-purple-700",
+};
+
+const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+function getWeekDates(offset: number): string[] {
+  const today = new Date();
+  const day = today.getDay(); // 0=Sun … 6=Sat
+  const mondayDiff = day === 0 ? -6 : 1 - day;
+  const monday = new Date(today);
+  monday.setDate(today.getDate() + mondayDiff + offset * 7);
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return d.toISOString().split("T")[0];
+  });
 }
 
-const MONTHS = ["January","February","March","April","May","June",
-                "July","August","September","October","November","December"];
-const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+function formatWeekRange(dates: string[]) {
+  const first = new Date(dates[0] + "T00:00:00");
+  const last = new Date(dates[6] + "T00:00:00");
+  const sameMonth =
+    first.getMonth() === last.getMonth() &&
+    first.getFullYear() === last.getFullYear();
+
+  if (sameMonth) {
+    return `${first.toLocaleDateString("en-GB", { month: "short" })} ${first.getDate()} – ${last.getDate()}, ${last.getFullYear()}`;
+  }
+  return `${first.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} – ${last.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`;
+}
 
 export default function CalendarClient({
   items,
-  initialYear,
-  initialMonth,
+  courses,
 }: {
   items: CalendarItem[];
-  initialYear: number;
-  initialMonth: number;
+  courses: CourseWithPlan[];
 }) {
-  const [year, setYear] = useState(initialYear);
-  const [month, setMonth] = useState(initialMonth);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-
-  function prev() {
-    if (month === 0) { setMonth(11); setYear(y => y - 1); }
-    else setMonth(m => m - 1);
-    setSelectedDate(null);
-  }
-  function next() {
-    if (month === 11) { setMonth(0); setYear(y => y + 1); }
-    else setMonth(m => m + 1);
-    setSelectedDate(null);
-  }
-
+  const router = useRouter();
+  const [weekOffset, setWeekOffset] = useState(0);
+  const weekDates = getWeekDates(weekOffset);
   const todayStr = new Date().toISOString().split("T")[0];
-  const daysInMonth = getDaysInMonth(year, month);
-  const firstDay = getFirstDayOfMonth(year, month);
 
-  // Group items by date for the current month
-  const byDate: Record<string, CalendarItem[]> = {};
-  items.forEach(item => {
-    if (!byDate[item.date]) byDate[item.date] = [];
-    byDate[item.date].push(item);
-  });
-
-  // Build calendar grid cells
-  const cells: (number | null)[] = [
-    ...Array(firstDay).fill(null),
-    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
-  ];
-  // Pad to complete last row
-  while (cells.length % 7 !== 0) cells.push(null);
-
-  const selectedItems = selectedDate ? (byDate[selectedDate] ?? []) : [];
-
-  // Unique courses per day (for dots)
-  function getCourseDots(dateStr: string) {
-    const dayItems = byDate[dateStr] ?? [];
-    const seen = new Set<string>();
-    return dayItems.filter(item => {
-      const key = item.course_id ?? "none";
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+  // Group items by course_id → date
+  const byCourseDate: Record<string, Record<string, CalendarItem[]>> = {};
+  for (const item of items) {
+    if (!item.course_id) continue;
+    if (!byCourseDate[item.course_id]) byCourseDate[item.course_id] = {};
+    if (!byCourseDate[item.course_id][item.date])
+      byCourseDate[item.course_id][item.date] = [];
+    byCourseDate[item.course_id][item.date].push(item);
   }
 
   return (
-    <div>
-      {/* Month navigation */}
-      <div className="flex items-center justify-between mb-6">
-        <button onClick={prev} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+    <div className="p-6">
+      {/* Week navigation */}
+      <div className="flex items-center gap-3 mb-8">
+        <button
+          onClick={() => setWeekOffset((o) => o - 1)}
+          className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
+          aria-label="Previous week"
+        >
+          <svg
+            className="w-4 h-4 text-slate-600"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            viewBox="0 0 24 24"
+          >
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <h2 className="text-lg font-semibold">{MONTHS[month]} {year}</h2>
-        <button onClick={next} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+
+        <span className="font-semibold text-slate-800 text-base min-w-48 text-center">
+          {formatWeekRange(weekDates)}
+        </span>
+
+        <button
+          onClick={() => setWeekOffset((o) => o + 1)}
+          className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
+          aria-label="Next week"
+        >
+          <svg
+            className="w-4 h-4 text-slate-600"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            viewBox="0 0 24 24"
+          >
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
           </svg>
         </button>
-      </div>
 
-      {/* Day headers */}
-      <div className="grid grid-cols-7 mb-1">
-        {DAYS.map(d => (
-          <div key={d} className="text-center text-xs font-medium text-gray-400 py-1">{d}</div>
-        ))}
+        {weekOffset !== 0 && (
+          <button
+            onClick={() => setWeekOffset(0)}
+            className="text-xs px-3 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors font-medium"
+          >
+            Today
+          </button>
+        )}
       </div>
 
       {/* Calendar grid */}
-      <div className="grid grid-cols-7 gap-1">
-        {cells.map((day, i) => {
-          if (!day) return <div key={i} />;
-          const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-          const isToday = dateStr === todayStr;
-          const isSelected = dateStr === selectedDate;
-          const dots = getCourseDots(dateStr);
-          const hasItems = dots.length > 0;
-
-          return (
-            <button
-              key={dateStr}
-              onClick={() => setSelectedDate(isSelected ? null : dateStr)}
-              className={`relative flex flex-col items-center rounded-lg py-2 px-1 transition-colors
-                ${isSelected ? "bg-black text-white" : isToday ? "bg-gray-100 font-bold" : "hover:bg-gray-50"}
-                ${hasItems ? "cursor-pointer" : "cursor-default"}`}
+      {courses.length === 0 ? (
+        <div className="text-center py-20 text-slate-400">
+          <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+            <svg
+              className="w-8 h-8 text-slate-300"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.5}
+              viewBox="0 0 24 24"
             >
-              <span className="text-sm">{day}</span>
-              {dots.length > 0 && (
-                <div className="flex gap-0.5 mt-1 flex-wrap justify-center">
-                  {dots.slice(0, 3).map((item, di) => (
-                    <span
-                      key={di}
-                      className={`w-1.5 h-1.5 rounded-full ${
-                        isSelected ? "bg-white" : colorDot[item.course_color ?? "blue"] ?? "bg-gray-400"
-                      }`}
-                    />
-                  ))}
-                  {dots.length > 3 && (
-                    <span className={`text-[8px] ${isSelected ? "text-white" : "text-gray-400"}`}>+{dots.length - 3}</span>
-                  )}
-                </div>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Day detail panel */}
-      {selectedDate && (
-        <div className="mt-6 border-t border-gray-200 pt-6">
-          <h3 className="text-sm font-semibold mb-3">
-            {new Date(selectedDate + "T00:00:00").toLocaleDateString("en-GB", {
-              weekday: "long", day: "numeric", month: "long",
-            })}
-          </h3>
-          {selectedItems.length === 0 ? (
-            <p className="text-sm text-gray-400">Nothing scheduled.</p>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {selectedItems.map(item => (
-                <Link
-                  key={item.item_id}
-                  href={`/plans/${item.plan_id}`}
-                  className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${colorDot[item.course_color ?? "blue"] ?? "bg-gray-400"}`} />
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm ${item.status === "completed" ? "line-through text-gray-400" : ""}`}>
-                      {item.topic_title}
+              <rect x="3" y="4" width="18" height="18" rx="2" />
+              <path d="M16 2v4M8 2v4M3 10h18" strokeLinecap="round" />
+            </svg>
+          </div>
+          <p className="font-medium text-slate-500 mb-1">No courses yet</p>
+          <p className="text-sm mb-4">Create a course to start planning your studies</p>
+          <a
+            href="/courses/new"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors"
+          >
+            + New course
+          </a>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <div className="min-w-[640px]">
+            {/* Header row */}
+            <div className="grid gap-1.5 mb-2" style={{ gridTemplateColumns: "180px repeat(7, 1fr)" }}>
+              <div /> {/* empty corner */}
+              {weekDates.map((date, i) => {
+                const isToday = date === todayStr;
+                const d = new Date(date + "T00:00:00");
+                return (
+                  <div
+                    key={date}
+                    className={`text-center py-2 rounded-xl ${isToday ? "bg-indigo-50" : ""}`}
+                  >
+                    <p
+                      className={`text-xs font-medium ${isToday ? "text-indigo-500" : "text-slate-400"}`}
+                    >
+                      {DAYS[i]}
                     </p>
-                    {item.course_title && (
-                      <span className={`text-xs px-1.5 py-0.5 rounded-full ${colorBadge[item.course_color ?? "blue"] ?? "bg-gray-100 text-gray-600"}`}>
-                        {item.course_title}
-                      </span>
-                    )}
+                    <p
+                      className={`text-sm font-semibold ${isToday ? "text-indigo-700" : "text-slate-700"}`}
+                    >
+                      {d.getDate()}
+                    </p>
                   </div>
-                  {item.status === "completed" && <span className="text-xs text-green-600">✓</span>}
-                  {item.status === "skipped" && <span className="text-xs text-gray-400">–</span>}
-                </Link>
-              ))}
+                );
+              })}
             </div>
-          )}
+
+            {/* Course rows */}
+            <div className="flex flex-col gap-2">
+              {courses.map((course) => {
+                const dot = colorDot[course.color] ?? "bg-blue-500";
+                const cellColors = colorCell[course.color] ?? colorCell.blue;
+                const countColor = colorCount[course.color] ?? colorCount.blue;
+
+                return (
+                  <div
+                    key={course.id}
+                    className="grid gap-1.5"
+                    style={{ gridTemplateColumns: "180px repeat(7, 1fr)" }}
+                  >
+                    {/* Course label */}
+                    <a
+                      href={`/courses/${course.id}`}
+                      className="flex items-center gap-2.5 px-3 py-3 rounded-xl hover:bg-slate-50 transition-colors group"
+                    >
+                      <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${dot}`} />
+                      <span className="text-sm font-medium text-slate-700 truncate group-hover:text-slate-900">
+                        {course.title}
+                      </span>
+                    </a>
+
+                    {/* Day cells */}
+                    {weekDates.map((date) => {
+                      const dayItems = byCourseDate[course.id]?.[date] ?? [];
+                      const total = dayItems.length;
+                      const done = dayItems.filter(
+                        (i) => i.status === "completed"
+                      ).length;
+                      const isToday = date === todayStr;
+                      const canNavigate = total > 0 && course.planId;
+
+                      return (
+                        <button
+                          key={date}
+                          onClick={() =>
+                            canNavigate &&
+                            router.push(`/plans/${course.planId}?date=${date}`)
+                          }
+                          disabled={!canNavigate}
+                          className={`rounded-xl py-3 px-2 transition-all text-center min-h-[60px] flex flex-col items-center justify-center ${
+                            total > 0
+                              ? `ring-1 ${cellColors} cursor-pointer`
+                              : isToday
+                              ? "bg-slate-50 cursor-default"
+                              : "bg-white cursor-default"
+                          }`}
+                        >
+                          {total > 0 ? (
+                            <>
+                              <span className={`text-xs font-bold ${countColor}`}>
+                                {done}/{total}
+                              </span>
+                              <div className="flex gap-0.5 flex-wrap justify-center mt-1.5">
+                                {dayItems.slice(0, 5).map((item, idx) => (
+                                  <span
+                                    key={idx}
+                                    className={`w-1.5 h-1.5 rounded-full ${
+                                      item.status === "completed"
+                                        ? dot
+                                        : "bg-slate-200"
+                                    }`}
+                                  />
+                                ))}
+                                {total > 5 && (
+                                  <span className="text-[9px] text-slate-400 leading-none mt-px">
+                                    +{total - 5}
+                                  </span>
+                                )}
+                              </div>
+                            </>
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
     </div>
