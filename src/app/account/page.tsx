@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getUserTier, LIMITS } from "@/lib/tier";
 import AppLayout from "@/components/AppLayout";
-import { UpgradeButton, ManageSubscriptionButton } from "./AccountActions";
+import { UpgradeButton, ManageSubscriptionButton, ExportDataButton, DeleteAccountButton } from "./AccountActions";
 
 const tierLabel: Record<string, string> = {
   free: "Free",
@@ -50,14 +51,8 @@ export default async function AccountPage() {
   const limits = LIMITS[tier];
 
   const [{ count: courseCount }, { count: planCount }] = await Promise.all([
-    supabase
-      .from("courses")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id),
-    supabase
-      .from("plans")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id),
+    supabase.from("courses").select("id", { count: "exact", head: true }).eq("user_id", user.id),
+    supabase.from("plans").select("id", { count: "exact", head: true }).eq("user_id", user.id),
   ]);
 
   const courses = courseCount ?? 0;
@@ -65,11 +60,11 @@ export default async function AccountPage() {
 
   return (
     <AppLayout>
-      <div className="p-6 max-w-lg">
-        <h1 className="text-2xl font-bold text-slate-900 mb-8">Account</h1>
+      <div className="p-6 max-w-lg flex flex-col gap-6">
+        <h1 className="text-2xl font-bold text-slate-900">Account</h1>
 
         {/* Plan card */}
-        <section className="mb-8 p-5 border border-slate-200 rounded-xl bg-white">
+        <section className="p-5 border border-slate-200 rounded-xl bg-white">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-semibold text-slate-800">Current plan</h2>
             <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${tierBadge[tier] ?? tierBadge.free}`}>
@@ -77,18 +72,9 @@ export default async function AccountPage() {
             </span>
           </div>
 
-          {/* Usage */}
           <div className="flex flex-col gap-3 mb-5">
-            <UsageBar
-              used={courses}
-              max={limits.courses}
-              label="Courses"
-            />
-            <UsageBar
-              used={plans}
-              max={limits.plans}
-              label="Study plans"
-            />
+            <UsageBar used={courses} max={limits.courses} label="Courses" />
+            <UsageBar used={plans} max={limits.plans} label="Study plans" />
             <div className="flex items-center justify-between">
               <span className="text-sm text-slate-700">PDFs per course</span>
               <span className="text-xs text-slate-400">
@@ -97,7 +83,6 @@ export default async function AccountPage() {
             </div>
           </div>
 
-          {/* Actions */}
           {tier === "free" && (
             <div className="pt-4 border-t border-slate-100">
               <p className="text-xs text-slate-500 mb-3">
@@ -106,7 +91,6 @@ export default async function AccountPage() {
               <UpgradeButton />
             </div>
           )}
-
           {tier === "paid" && (
             <div className="pt-4 border-t border-slate-100">
               <p className="text-xs text-slate-500 mb-3">
@@ -115,7 +99,6 @@ export default async function AccountPage() {
               <ManageSubscriptionButton />
             </div>
           )}
-
           {tier === "dev" && (
             <div className="pt-4 border-t border-slate-100">
               <p className="text-xs text-slate-500">Developer account — all limits bypassed.</p>
@@ -130,6 +113,24 @@ export default async function AccountPage() {
             Signed in as <span className="font-medium text-slate-700">{user.email}</span>
           </p>
         </section>
+
+        {/* GDPR / Data */}
+        <section className="p-5 border border-slate-200 rounded-xl bg-white">
+          <h2 className="text-base font-semibold text-slate-800 mb-1">Your data</h2>
+          <p className="text-xs text-slate-400 mb-4">
+            You have the right to export or delete all data we hold about you.
+          </p>
+          <div className="flex flex-col gap-3">
+            <ExportDataButton />
+            <DeleteAccountButton />
+          </div>
+        </section>
+
+        {/* Legal links */}
+        <div className="flex gap-4 text-xs text-slate-400">
+          <Link href="/privacy" className="hover:text-slate-600 transition-colors">Privacy policy</Link>
+          <Link href="/terms" className="hover:text-slate-600 transition-colors">Terms of service</Link>
+        </div>
       </div>
     </AppLayout>
   );

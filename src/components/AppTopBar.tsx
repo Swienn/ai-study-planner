@@ -26,7 +26,7 @@ export default async function AppTopBar() {
           </svg>
         </div>
         <span className="font-bold text-slate-900 text-base tracking-tight">
-          StudyPlanner
+          StudyTool
         </span>
       </Link>
 

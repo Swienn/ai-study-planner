@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -24,6 +25,12 @@ export default function SignupPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
     setLoading(true);
 
     const supabase = createClient();
@@ -99,10 +106,31 @@ export default function SignupPage() {
               className="border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
             />
           </div>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="confirm-password" className="text-sm font-medium text-slate-700">
+              Confirm password
+            </label>
+            <input
+              id="confirm-password"
+              type="password"
+              required
+              minLength={6}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className={`border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white ${
+                confirmPassword && confirmPassword !== password
+                  ? "border-red-300"
+                  : "border-slate-200"
+              }`}
+            />
+            {confirmPassword && confirmPassword !== password && (
+              <p className="text-xs text-red-500">Passwords do not match</p>
+            )}
+          </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || (!!confirmPassword && confirmPassword !== password)}
             className="bg-indigo-600 text-white rounded-xl py-2.5 text-sm font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50 mt-1"
           >
             {loading ? "Creating account…" : "Sign up"}
@@ -134,6 +162,12 @@ export default function SignupPage() {
           <Link href="/login" className="text-indigo-600 font-medium hover:underline">
             Log in
           </Link>
+        </p>
+        <p className="text-xs text-slate-400 mt-3 text-center">
+          By signing up you agree to our{" "}
+          <Link href="/terms" className="hover:underline">Terms</Link>
+          {" "}and{" "}
+          <Link href="/privacy" className="hover:underline">Privacy Policy</Link>.
         </p>
       </div>
     </main>
