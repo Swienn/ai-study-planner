@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import UpgradeBanner from "@/components/UpgradeBanner";
 
 const COLORS = [
   { value: "blue",   label: "Blue",   dot: "bg-blue-500" },
@@ -17,11 +18,13 @@ export default function NewCourseForm() {
   const [color, setColor] = useState("blue");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [limitHit, setLimitHit] = useState(false);
   const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setLimitHit(false);
     setLoading(true);
 
     const res = await fetch("/api/courses", {
@@ -32,6 +35,7 @@ export default function NewCourseForm() {
 
     const data = await res.json();
     if (!res.ok) {
+      if (res.status === 403) setLimitHit(true);
       setError(data.error ?? "Something went wrong");
       setLoading(false);
       return;
@@ -73,10 +77,14 @@ export default function NewCourseForm() {
             ))}
           </div>
         </div>
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {limitHit && error ? (
+          <UpgradeBanner message={error} />
+        ) : error ? (
+          <p className="text-sm text-red-600">{error}</p>
+        ) : null}
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || limitHit}
           className="bg-indigo-600 text-white rounded-xl py-2.5 text-sm font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50"
         >
           {loading ? "Creating…" : "Create course"}

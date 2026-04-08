@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { anthropic } from "@/lib/anthropic";
 import { checkRateLimit } from "@/lib/rateLimit";
+import { getUserTier, LIMITS } from "@/lib/tier";
 import { PDFParse } from "pdf-parse";
 import { randomUUID } from "crypto";
 
@@ -17,6 +18,7 @@ type RawTopic = {
   summary: string;
   difficulty: number;
   position: number;
+  minutes: number;
 };
 
 export async function POST(request: Request) {
@@ -69,16 +71,25 @@ export async function POST(request: Request) {
       return Response.json({ error: "Course not found" }, { status: 404 });
     }
 
-    // Enforce max documents per course to bound total Claude token spend
+    // Enforce tier PDFs-per-course limit
+    const tier = await getUserTier(supabase, user.id);
+    const pdfLimit = LIMITS[tier].pdfsPerCourse;
+
     const { count: docCount } = await supabase
       .from("documents")
       .select("id", { count: "exact", head: true })
       .eq("course_id", courseId);
 
-    if ((docCount ?? 0) >= MAX_DOCS_PER_COURSE) {
+    const hardCap = Math.min(pdfLimit === Infinity ? MAX_DOCS_PER_COURSE : pdfLimit, MAX_DOCS_PER_COURSE);
+    if ((docCount ?? 0) >= hardCap) {
+      const isFreeTier = pdfLimit !== Infinity;
       return Response.json(
-        { error: `Maximum ${MAX_DOCS_PER_COURSE} documents per course` },
-        { status: 400 }
+        {
+          error: isFreeTier
+            ? `Free accounts are limited to ${pdfLimit} PDFs per course. Upgrade to Premium for more.`
+            : `Maximum ${MAX_DOCS_PER_COURSE} documents per course`,
+        },
+        { status: 403 }
       );
     }
   }
@@ -151,6 +162,11 @@ Return ONLY a valid JSON array — no markdown, no code fences, no explanation o
 - "summary": string (1-2 sentences explaining what to study, max 200 chars)
 - "difficulty": number — 1 (factual recall), 2 (understanding concepts), 3 (analysis/synthesis)
 - "position": number (0-based index representing the order in the document)
+- "minutes": number — realistic study time in minutes for a focused student to properly learn this topic
+  - Difficulty 1 (recall): 10–25 minutes
+  - Difficulty 2 (concepts): 25–50 minutes
+  - Difficulty 3 (analysis): 45–90 minutes
+  - Be accurate — a large complex topic should get more minutes than a small factual one
 
 Rules:
 - Extract between 3 and 15 topics
@@ -223,9 +239,10 @@ ${rawText}
     document_id: documentId,
     title: String(t.title).slice(0, 60),
     summary: String(t.summary).slice(0, 200),
-    // Clamp difficulty to 1-3 to satisfy DB CHECK constraint
     difficulty: Math.max(1, Math.min(3, Math.round(Number(t.difficulty)))) as 1 | 2 | 3,
     position: Number(t.position) || 0,
+    // Clamp minutes to a sane range (5–120)
+    minutes: Math.max(5, Math.min(120, Math.round(Number(t.minutes) || 30))),
   }));
 
   const { data: insertedTopics, error: topicsError } = await supabase

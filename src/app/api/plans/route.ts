@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
-import { schedulePlan } from "@/lib/planScheduler";
+import { schedulePlan, type TopicWithTime } from "@/lib/planScheduler";
 import { checkRateLimit } from "@/lib/rateLimit";
+import { getUserTier, LIMITS } from "@/lib/tier";
 
 function addDays(dateStr: string, days: number): string {
   const [y, m, d] = dateStr.split("-").map(Number);
@@ -45,8 +46,24 @@ export async function POST(request: Request) {
     return Response.json({ error: "Exam date must be in the future" }, { status: 400 });
   }
 
+  // Enforce tier plan limit
+  const tier = await getUserTier(supabase, user.id);
+  const planLimit = LIMITS[tier].plans;
+  if (planLimit !== Infinity) {
+    const { count } = await supabase
+      .from("plans")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id);
+    if ((count ?? 0) >= planLimit) {
+      return Response.json(
+        { error: `Free accounts are limited to ${planLimit} plans. Upgrade to Premium for unlimited plans.` },
+        { status: 403 }
+      );
+    }
+  }
+
   // Fetch topics — either from all documents in a course, or from a single document
-  let topicIds: string[];
+  let topics: TopicWithTime[];
   let docIds: string[];
 
   if (course_id) {
@@ -71,18 +88,16 @@ export async function POST(request: Request) {
       return Response.json({ error: "Upload at least one PDF to this course first" }, { status: 400 });
     }
 
-    // Get all topics across all course documents, ordered by document then position
-    const { data: topics } = await supabase
+    const { data: rawTopics } = await supabase
       .from("topics")
-      .select("id, document_id, position")
+      .select("id, document_id, position, minutes")
       .in("document_id", docIds)
       .order("position");
 
-    // Sort by document order, then by position within document
     const docOrder = Object.fromEntries(docIds.map((id, i) => [id, i]));
-    topicIds = (topics ?? [])
+    topics = (rawTopics ?? [])
       .sort((a, b) => docOrder[a.document_id] - docOrder[b.document_id] || a.position - b.position)
-      .map((t) => t.id);
+      .map((t) => ({ id: t.id, minutes: t.minutes ?? 30 }));
   } else {
     // Legacy: single document path
     const { data: doc } = await supabase
@@ -94,19 +109,19 @@ export async function POST(request: Request) {
     if (!doc) return Response.json({ error: "Document not found" }, { status: 404 });
 
     docIds = [document_id];
-    const { data: topics } = await supabase
+    const { data: rawTopics } = await supabase
       .from("topics")
-      .select("id")
+      .select("id, minutes")
       .eq("document_id", document_id)
       .order("position");
-    topicIds = (topics ?? []).map((t) => t.id);
+    topics = (rawTopics ?? []).map((t) => ({ id: t.id, minutes: t.minutes ?? 30 }));
   }
 
-  if (topicIds.length === 0) {
+  if (topics.length === 0) {
     return Response.json({ error: "No topics found" }, { status: 400 });
   }
 
-  // Build existing load map for conflict-aware scheduling
+  // Build existing load map (in minutes) for conflict-aware scheduling
   const { data: userPlans } = await supabase
     .from("plans")
     .select("id")
@@ -118,20 +133,22 @@ export async function POST(request: Request) {
   if (planIds.length > 0) {
     const { data: existingItems } = await supabase
       .from("plan_items")
-      .select("date")
+      .select("date, topics(minutes)")
       .in("plan_id", planIds)
       .neq("status", "skipped")
       .gte("date", new Date().toISOString().split("T")[0]);
 
     (existingItems ?? []).forEach((item) => {
-      existingLoad.set(item.date, (existingLoad.get(item.date) ?? 0) + 1);
+      const t = Array.isArray(item.topics) ? item.topics[0] : item.topics;
+      const mins = (t as { minutes?: number } | null)?.minutes ?? 30;
+      existingLoad.set(item.date, (existingLoad.get(item.date) ?? 0) + mins);
     });
   }
 
-  // Schedule topics across days — use provided start_date or default to tomorrow
+  // Schedule topics — use provided start_date or default to tomorrow
   const todayStr = new Date().toISOString().split("T")[0];
   const startStr = start_date && start_date > todayStr ? start_date : addDays(todayStr, 1);
-  const scheduled = schedulePlan(topicIds, startStr, exam_date, parsedHours, existingLoad);
+  const scheduled = schedulePlan(topics, startStr, exam_date, parsedHours, existingLoad);
 
   // Create plan
   const { data: plan, error: planError } = await supabase

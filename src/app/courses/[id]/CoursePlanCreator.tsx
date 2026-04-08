@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import UpgradeBanner from "@/components/UpgradeBanner";
 
 type ExistingPlan = {
   id: string;
@@ -29,6 +30,7 @@ export default function CoursePlanCreator({
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [limitHit, setLimitHit] = useState(false);
   const router = useRouter();
 
   const today = new Date().toISOString().split("T")[0];
@@ -38,12 +40,14 @@ export default function CoursePlanCreator({
     setHoursPerDay(existingPlan ? String(existingPlan.hours_per_day) : "2");
     setStartDate("");
     setError(null);
+    setLimitHit(false);
     setMode("edit");
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setLimitHit(false);
     setLoading(true);
 
     if (mode === "edit" && existingPlan) {
@@ -58,6 +62,7 @@ export default function CoursePlanCreator({
       });
       const data = await res.json();
       if (!res.ok) {
+        if (res.status === 403) setLimitHit(true);
         setError(data.error ?? "Something went wrong");
         setLoading(false);
         return;
@@ -78,6 +83,7 @@ export default function CoursePlanCreator({
       });
       const data = await res.json();
       if (!res.ok) {
+        if (res.status === 403) setLimitHit(true);
         setError(data.error ?? "Something went wrong");
         setLoading(false);
         return;
@@ -197,11 +203,15 @@ export default function CoursePlanCreator({
           />
         </div>
       </div>
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {limitHit && error ? (
+        <UpgradeBanner message={error} />
+      ) : error ? (
+        <p className="text-xs text-red-600">{error}</p>
+      ) : null}
       <div className="flex gap-2">
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || limitHit}
           className="flex-1 bg-indigo-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50"
         >
           {loading
@@ -214,7 +224,7 @@ export default function CoursePlanCreator({
         </button>
         <button
           type="button"
-          onClick={() => setMode("idle")}
+          onClick={() => { setMode("idle"); setError(null); setLimitHit(false); }}
           className="px-4 py-2 text-sm border border-slate-200 rounded-lg hover:bg-white transition-colors"
         >
           Cancel

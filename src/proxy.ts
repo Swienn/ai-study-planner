@@ -29,13 +29,24 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Redirect unauthenticated users away from protected routes
-  const protectedPrefixes = ["/dashboard", "/calendar", "/courses", "/plans"];
-  const isProtected = protectedPrefixes.some(prefix =>
+  const protectedPrefixes = ["/dashboard", "/calendar", "/courses", "/plans", "/account"];
+  const isProtected = protectedPrefixes.some((prefix) =>
     request.nextUrl.pathname.startsWith(prefix)
   );
+
+  // Redirect unauthenticated users away from protected routes
   if (!user && isProtected) {
     return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  // Redirect authenticated but unverified users to the verify-email page
+  if (
+    user &&
+    !user.email_confirmed_at &&
+    isProtected &&
+    request.nextUrl.pathname !== "/verify-email"
+  ) {
+    return NextResponse.redirect(new URL("/verify-email", request.url));
   }
 
   return supabaseResponse;

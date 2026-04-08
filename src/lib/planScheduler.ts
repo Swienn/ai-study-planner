@@ -1,6 +1,8 @@
 // Pure scheduling logic — no Supabase imports, fully testable.
 // Works exclusively with YYYY-MM-DD date strings to avoid timezone issues.
+// Scheduling unit is MINUTES, not topic count.
 
+export type TopicWithTime = { id: string; minutes: number };
 export type ScheduledItem = { topic_id: string; date: string };
 
 function addDays(dateStr: string, days: number): string {
@@ -18,24 +20,25 @@ function daysBetween(a: string, b: string): number {
 }
 
 /**
- * Distributes topics across days from startDate until (but not including) examDate,
- * respecting capacity limits and existing load from other plans.
+ * Distributes topics across days from startDate until (but not including) examDate.
+ * Each topic has an estimated study time in minutes. Topics are scheduled so the
+ * total minutes per day stays within the student's daily budget, with harder/longer
+ * topics naturally taking more of the day than quick ones.
  *
- * @param topicIds       - topic IDs in desired study order
- * @param startDateStr   - first day to schedule topics (YYYY-MM-DD)
- * @param examDateStr    - exam date as YYYY-MM-DD (excluded)
+ * @param topics         - topics in desired study order, each with id + estimated minutes
+ * @param startDateStr   - first day to schedule (YYYY-MM-DD)
+ * @param examDateStr    - exam date, excluded from scheduling (YYYY-MM-DD)
  * @param hoursPerDay    - hours the student plans to study per day
- * @param existingLoad   - map of date → count of items already scheduled (from other plans)
+ * @param existingLoad   - map of date → minutes already scheduled from other plans
  */
 export function schedulePlan(
-  topicIds: string[],
+  topics: TopicWithTime[],
   startDateStr: string,
   examDateStr: string,
   hoursPerDay: number,
   existingLoad: Map<string, number>
 ): ScheduledItem[] {
-  // ~30 minutes per topic, minimum 3 per day
-  const basePerDay = Math.max(3, Math.round(hoursPerDay * 2));
+  const budgetPerDay = hoursPerDay * 60; // convert to minutes
   const totalDays = Math.max(1, daysBetween(startDateStr, examDateStr));
 
   // Build list of candidate dates (startDate up to but not including exam day)
@@ -45,39 +48,48 @@ export function schedulePlan(
   }
   if (candidates.length === 0) candidates.push(startDateStr);
 
-  // Calculate per-day capacity respecting existing load from other plans
-  const capacityPerDay = candidates.map((date) =>
-    Math.max(0, basePerDay - (existingLoad.get(date) ?? 0))
+  // Available minutes per day after accounting for other plans
+  const availablePerDay = candidates.map((date) =>
+    Math.max(0, budgetPerDay - (existingLoad.get(date) ?? 0))
   );
-  const totalCapacity = capacityPerDay.reduce((a, b) => a + b, 0);
+  const totalAvailable = availablePerDay.reduce((a, b) => a + b, 0);
+  const totalNeeded = topics.reduce((sum, t) => sum + t.minutes, 0);
 
-  // If topics exceed capacity, spread the overflow evenly across all days
-  let effectiveCapacity = [...capacityPerDay];
-  if (topicIds.length > totalCapacity && candidates.length > 0) {
-    const overflow = topicIds.length - totalCapacity;
-    const extraPerDay = Math.ceil(overflow / candidates.length);
-    effectiveCapacity = capacityPerDay.map((cap) => cap + extraPerDay);
+  // If topics exceed available time, scale up each day's budget proportionally
+  let effectivePerDay = [...availablePerDay];
+  if (totalNeeded > totalAvailable && candidates.length > 0) {
+    const extraPerDay = Math.ceil((totalNeeded - totalAvailable) / candidates.length);
+    effectivePerDay = availablePerDay.map((m) => m + extraPerDay);
   }
 
   const result: ScheduledItem[] = [];
   let topicIndex = 0;
 
   for (let di = 0; di < candidates.length; di++) {
-    if (topicIndex >= topicIds.length) break;
+    if (topicIndex >= topics.length) break;
+
     const date = candidates[di];
-    const slots = effectiveCapacity[di];
-    const assign = Math.min(slots, topicIds.length - topicIndex);
-    for (let s = 0; s < assign; s++) {
-      result.push({ topic_id: topicIds[topicIndex], date });
+    let minutesLeft = effectivePerDay[di];
+
+    // Fill this day until the budget runs out or no topics left
+    while (topicIndex < topics.length) {
+      const topic = topics[topicIndex];
+
+      // Always schedule at least one topic per day (even if it slightly overruns)
+      const isFirstOnDay = minutesLeft === effectivePerDay[di];
+      if (!isFirstOnDay && topic.minutes > minutesLeft) break;
+
+      result.push({ topic_id: topic.id, date });
+      minutesLeft -= topic.minutes;
       topicIndex++;
     }
   }
 
   // Safety fallback (should not be reached with overflow spreading)
-  if (topicIndex < topicIds.length) {
+  if (topicIndex < topics.length) {
     const lastDate = candidates[candidates.length - 1];
-    while (topicIndex < topicIds.length) {
-      result.push({ topic_id: topicIds[topicIndex], date: lastDate });
+    while (topicIndex < topics.length) {
+      result.push({ topic_id: topics[topicIndex].id, date: lastDate });
       topicIndex++;
     }
   }

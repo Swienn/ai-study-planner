@@ -42,6 +42,12 @@ export default async function AppTopBar() {
         >
           Manage
         </Link>
+        <Link
+          href="/account"
+          className="text-sm text-slate-500 hover:text-slate-800 transition-colors hidden sm:block"
+        >
+          Account
+        </Link>
         <form action="/api/auth/signout" method="POST">
           <button
             type="submit"

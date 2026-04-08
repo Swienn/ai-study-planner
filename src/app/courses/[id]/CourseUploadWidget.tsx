@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import UpgradeBanner from "@/components/UpgradeBanner";
 
 type Topic = { id: string; title: string; summary: string; difficulty: 1 | 2 | 3 };
 type UploadResult = { document: { id: string; filename: string }; topics: Topic[] };
@@ -18,6 +19,7 @@ export default function CourseUploadWidget({ courseId }: { courseId: string }) {
   const [status, setStatus] = useState<"idle" | "uploading" | "done" | "error">("idle");
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [limitHit, setLimitHit] = useState(false);
   const [result, setResult] = useState<UploadResult | null>(null);
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -26,6 +28,7 @@ export default function CourseUploadWidget({ courseId }: { courseId: string }) {
 
     setStatus("uploading");
     setError(null);
+    setLimitHit(false);
     setResult(null);
 
     const formData = new FormData();
@@ -35,10 +38,15 @@ export default function CourseUploadWidget({ courseId }: { courseId: string }) {
     try {
       const res = await fetch("/api/documents/upload", { method: "POST", body: formData });
       const data = await res.json();
-      if (!res.ok) { setError(data.error ?? "Upload failed"); setStatus("error"); return; }
+      if (!res.ok) {
+        if (res.status === 403) setLimitHit(true);
+        setError(data.error ?? "Upload failed");
+        setStatus("error");
+        return;
+      }
       setResult(data);
       setStatus("done");
-      router.refresh(); // refresh server component so document list updates
+      router.refresh();
     } catch {
       setError("Network error — please try again");
       setStatus("error");
@@ -49,14 +57,19 @@ export default function CourseUploadWidget({ courseId }: { courseId: string }) {
   return (
     <div className="mt-4">
       <label className={`flex flex-col items-center justify-center w-full h-28 border-2 border-dashed rounded-xl cursor-pointer transition-colors
-        ${status === "uploading" ? "border-gray-300 bg-gray-50 cursor-not-allowed" : "border-gray-300 hover:border-black hover:bg-gray-50"}`}>
+        ${status === "uploading" || limitHit ? "border-gray-300 bg-gray-50 cursor-not-allowed" : "border-gray-300 hover:border-black hover:bg-gray-50"}`}>
         {status === "uploading" ? (
-          <div className="flex items-center gap-2 text-gray-400">
-            <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-            </svg>
-            <span className="text-sm">Extracting topics…</span>
+          <div className="flex flex-col items-center gap-1 w-full px-4">
+            <span className="text-xs text-slate-400 mb-2">Extracting topics…</span>
+            {[70, 50, 85, 60, 75].map((w, i) => (
+              <div key={i} className="flex items-center gap-2 w-full">
+                <div className="w-10 h-4 bg-slate-200 rounded-full animate-pulse flex-shrink-0" />
+                <div
+                  className="h-3 bg-slate-200 rounded animate-pulse"
+                  style={{ width: `${w}%` } as React.CSSProperties}
+                />
+              </div>
+            ))}
           </div>
         ) : (
           <div className="flex flex-col items-center gap-1 text-gray-400">
@@ -67,10 +80,22 @@ export default function CourseUploadWidget({ courseId }: { courseId: string }) {
             <span className="text-xs">Max 10 MB</span>
           </div>
         )}
-        <input type="file" accept=".pdf,application/pdf" className="hidden" disabled={status === "uploading"} onChange={handleFileChange} />
+        <input
+          type="file"
+          accept=".pdf,application/pdf"
+          className="hidden"
+          disabled={status === "uploading" || limitHit}
+          onChange={handleFileChange}
+        />
       </label>
 
-      {status === "error" && <p className="mt-2 text-sm text-red-600">{error}</p>}
+      {status === "error" && limitHit && error ? (
+        <div className="mt-2">
+          <UpgradeBanner message={error} />
+        </div>
+      ) : status === "error" && error ? (
+        <p className="mt-2 text-sm text-red-600">{error}</p>
+      ) : null}
 
       {status === "done" && result && (
         <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">

@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { schedulePlan } from "@/lib/planScheduler";
+import { schedulePlan, type TopicWithTime } from "@/lib/planScheduler";
 
 export const runtime = "nodejs";
 
@@ -81,27 +81,27 @@ export async function PATCH(
     .order("created_at");
   const orderedDocIds = (docs ?? []).map((d) => d.id);
 
-  const { data: topics } = await supabase
+  const { data: rawTopics } = await supabase
     .from("topics")
-    .select("id, document_id, position")
+    .select("id, document_id, position, minutes")
     .in("document_id", orderedDocIds)
     .order("position");
 
   const docOrder = Object.fromEntries(orderedDocIds.map((docId, i) => [docId, i]));
-  const topicIds = (topics ?? [])
+  const topics: TopicWithTime[] = (rawTopics ?? [])
     .sort((a, b) => docOrder[a.document_id] - docOrder[b.document_id] || a.position - b.position)
-    .map((t) => t.id);
+    .map((t) => ({ id: t.id, minutes: t.minutes ?? 30 }));
 
-  if (topicIds.length === 0) {
+  if (topics.length === 0) {
     return Response.json({ error: "No topics found" }, { status: 400 });
   }
 
-  // Build existing load from all OTHER user plans
+  // Build existing load (in minutes) from all OTHER user plans
   const { data: userPlans } = await supabase
     .from("plans")
     .select("id")
     .eq("user_id", user.id)
-    .neq("id", id); // exclude this plan
+    .neq("id", id);
 
   const otherPlanIds = (userPlans ?? []).map((p) => p.id);
   const existingLoad = new Map<string, number>();
@@ -109,19 +109,21 @@ export async function PATCH(
   if (otherPlanIds.length > 0) {
     const { data: existingItems } = await supabase
       .from("plan_items")
-      .select("date")
+      .select("date, topics(minutes)")
       .in("plan_id", otherPlanIds)
       .neq("status", "skipped")
       .gte("date", new Date().toISOString().split("T")[0]);
 
     (existingItems ?? []).forEach((item) => {
-      existingLoad.set(item.date, (existingLoad.get(item.date) ?? 0) + 1);
+      const t = Array.isArray(item.topics) ? item.topics[0] : item.topics;
+      const mins = (t as { minutes?: number } | null)?.minutes ?? 30;
+      existingLoad.set(item.date, (existingLoad.get(item.date) ?? 0) + mins);
     });
   }
 
   const todayStr = new Date().toISOString().split("T")[0];
   const startStr = start_date && start_date > todayStr ? start_date : addDays(todayStr, 1);
-  const scheduled = schedulePlan(topicIds, startStr, exam_date, parsedHours, existingLoad);
+  const scheduled = schedulePlan(topics, startStr, exam_date, parsedHours, existingLoad);
 
   // Replace plan items atomically: delete old, insert new
   const { error: deleteError } = await supabase

@@ -75,12 +75,17 @@ export default function UploadWidget() {
           }`}
       >
         {status === "uploading" ? (
-          <div className="flex flex-col items-center gap-2 text-gray-400">
-            <svg className="animate-spin h-6 w-6" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-            </svg>
-            <span className="text-sm">Extracting topics…</span>
+          <div className="flex flex-col items-center gap-1.5 w-full px-6">
+            <span className="text-xs text-slate-400 mb-2">Extracting topics…</span>
+            {[80, 55, 90, 65, 75, 45].map((w, i) => (
+              <div key={i} className="flex items-center gap-2 w-full">
+                <div className="w-12 h-4 bg-slate-200 rounded-full animate-pulse flex-shrink-0" />
+                <div
+                  className="h-3 bg-slate-200 rounded animate-pulse"
+                  style={{ width: `${w}%` } as React.CSSProperties}
+                />
+              </div>
+            ))}
           </div>
         ) : (
           <div className="flex flex-col items-center gap-1 text-gray-400">

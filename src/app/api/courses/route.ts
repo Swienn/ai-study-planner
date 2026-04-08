@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getUserTier, LIMITS } from "@/lib/tier";
 
 export const runtime = "nodejs";
 
@@ -25,6 +26,22 @@ export async function POST(request: Request) {
   const { title, color } = body;
 
   if (!title?.trim()) return Response.json({ error: "Title is required" }, { status: 400 });
+
+  // Enforce tier course limit
+  const tier = await getUserTier(supabase, user.id);
+  const limit = LIMITS[tier].courses;
+  if (limit !== Infinity) {
+    const { count } = await supabase
+      .from("courses")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id);
+    if ((count ?? 0) >= limit) {
+      return Response.json(
+        { error: `Free accounts are limited to ${limit} courses. Upgrade to Premium for unlimited courses.` },
+        { status: 403 }
+      );
+    }
+  }
 
   const validColors = ["red", "orange", "yellow", "green", "blue", "purple"];
   const safeColor = validColors.includes(color) ? color : "blue";

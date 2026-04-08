@@ -79,45 +79,66 @@ src/
 ├── app/
 │   ├── api/
 │   │   ├── auth/signout/         → POST sign out
-│   │   ├── courses/              → GET list, POST create
+│   │   ├── courses/              → GET list, POST create (tier-limited)
 │   │   ├── courses/[id]/         → GET detail, DELETE
 │   │   ├── documents/[id]/       → DELETE (also removes from storage)
-│   │   ├── documents/upload/     → POST upload PDF + Claude extraction
+│   │   ├── documents/upload/     → POST upload PDF + Claude extraction (rate-limited, tier-limited)
 │   │   ├── plan-items/[id]/      → PATCH status (pending/completed/skipped)
-│   │   ├── plans/                → POST create plan
-│   │   └── plans/[id]/           → DELETE
-│   ├── auth/callback/            → email confirmation handler
+│   │   ├── plans/                → POST create plan (rate-limited, tier-limited)
+│   │   ├── plans/[id]/           → DELETE + PATCH (regenerate)
+│   │   └── stripe/
+│   │       ├── checkout/         → POST create Stripe checkout session
+│   │       └── webhook/          → POST Stripe webhook (updates profiles.tier)
+│   ├── auth/callback/            → email confirmation + OAuth callback handler
 │   ├── calendar/                 → full calendar view (all courses)
 │   ├── courses/
 │   │   ├── new/                  → create course form
 │   │   └── [id]/                 → course detail, upload PDFs, create plan
 │   ├── dashboard/                → course cards, uncategorised docs/plans
+│   ├── forgot-password/          → request password reset email
+│   ├── reset-password/           → set new password (landed from email link)
+│   ├── verify-email/             → gate for unverified users with resend button
 │   ├── plans/[id]/               → day-by-day plan view, progress tracking
-│   ├── login/ signup/            → auth pages
+│   ├── login/ signup/            → auth pages (with Google OAuth button)
 │   └── page.tsx                  → landing page
+├── components/
+│   ├── AppLayout.tsx             → wraps every authenticated page
+│   ├── AppSidebar.tsx            → left nav
+│   ├── AppTopBar.tsx             → top bar with user menu
+│   ├── PageShell.tsx             → static layout shell used by loading.tsx files
+│   └── Skeleton.tsx              → animate-pulse skeleton primitive
 ├── lib/
 │   ├── anthropic.ts              → Anthropic client (server-side only)
-│   ├── planScheduler.ts          → pure scheduling logic, no DB imports
+│   ├── planScheduler.ts          → pure scheduling logic (minutes-based), no DB imports
+│   ├── rateLimit.ts              → DB-based rate limiter
+│   ├── stripe.ts                 → lazy Stripe singleton + PREMIUM_PRICE_ID
+│   ├── tier.ts                   → getUserTier(), LIMITS, Tier type
 │   └── supabase/
+│       ├── admin.ts              → service-role client (webhook use only)
 │       ├── client.ts             → browser client (use in "use client" components)
 │       └── server.ts             → server client (use in API routes + server components)
-└── proxy.ts                      → auth proxy, protects /dashboard /courses /plans /calendar
+└── proxy.ts                      → auth proxy; checks email_confirmed_at; protects /dashboard /courses /plans /calendar
 ```
 
 ### Database schema
 
 ```
+profiles      user_id, tier(free/paid/dev), stripe_customer_id, stripe_subscription_id
 courses       id, user_id, title, color
 documents     id, user_id, course_id(nullable), filename, raw_text
-topics        id, document_id, title, summary, difficulty(1-3), position
+topics        id, document_id, title, summary, difficulty(1-3), position, minutes(integer default 30)
 plans         id, user_id, course_id(nullable), title, exam_date, hours_per_day
 plan_documents plan_id, document_id
 plan_items    id, plan_id, topic_id, date, status(pending/completed/skipped)
 ```
 
-All tables have RLS — users can only access their own rows.
+All tables have RLS — users can only access their own rows. `profiles` has SELECT-only RLS for users (no UPDATE), so tier can only be changed via service-role webhook or direct DB edit.
 
 `course_id` is nullable on `documents` and `plans` for backwards compatibility with pre-course uploads.
+
+Pending migrations to run in Supabase SQL Editor:
+- `supabase/migration_profiles.sql` — creates profiles table + auto-create trigger on auth.users insert
+- `supabase/migration_minutes.sql` — adds `minutes` column to topics
 
 ### Key patterns
 
@@ -130,7 +151,13 @@ if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
 **PDF upload security** — validate magic bytes (`%PDF` = `0x25 0x50 0x44 0x46`), not just MIME type. Create two independent `Buffer.from(arrayBuffer.slice(0))` copies before passing to pdf-parse — pdfjs-dist detaches the ArrayBuffer it receives, which corrupts the storage upload.
 
-**Scheduling** — `src/lib/planScheduler.ts` takes `topicIds`, `startDateStr`, `examDateStr`, `hoursPerDay`, and a `Map<date, existingCount>` of already-scheduled items. Works only with `YYYY-MM-DD` strings to avoid timezone issues. The API fetches existing load from all user plans before calling it.
+**Scheduling** — `src/lib/planScheduler.ts` takes `TopicWithTime[]` (each `{ id, minutes }`), `startDateStr`, `examDateStr`, `hoursPerDay`, and a `Map<date, existingMinutes>` of already-scheduled load in minutes. Budgets `hoursPerDay * 60` minutes per day, spreads overflow evenly across days, guarantees at least one topic per day. Works only with `YYYY-MM-DD` strings to avoid timezone issues.
+
+**Tier system** — `src/lib/tier.ts` exports `getUserTier(supabase, userId)` and `LIMITS` object. Free: 2 courses, 3 PDFs/course, 3 plans. Paid/Dev: unlimited. Dev tier can only be set manually in DB — no API route sets it, webhook has `.neq("tier", "dev")`, RLS has no UPDATE for users.
+
+**Stripe** — lazy singleton in `src/lib/stripe.ts` via `getStripe()` to avoid build-time failure when env var is empty. Webhook uses `createAdminClient()` (service role, bypasses RLS). Never initialize Stripe at module level.
+
+**Rate limiting** — DB-based (no Redis): `src/lib/rateLimit.ts` counts rows in a window using Supabase. Applied to all mutating API routes.
 
 **Supabase nested joins** — avoid deep joins with `select("a, b(c(d))")` — they silently return null for ambiguous FKs. Fetch separately and join in JS instead.
 
@@ -141,20 +168,81 @@ if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 ```
 NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY
-SUPABASE_SERVICE_ROLE_KEY
+SUPABASE_SERVICE_ROLE_KEY     # service role — server-only, never expose to client
 ANTHROPIC_API_KEY
+STRIPE_SECRET_KEY             # sk_test_... for dev, sk_live_... for prod
+STRIPE_WEBHOOK_SECRET         # whsec_... from Stripe CLI or dashboard
+STRIPE_PRICE_ID               # price_... for the Premium subscription product
+NEXT_PUBLIC_SITE_URL          # http://localhost:3000 in dev, production URL in prod
 ```
 
-## Planned features (not yet built)
+For local webhook testing run `stripe listen --forward-to localhost:3000/api/stripe/webhook` (requires `stripe login` first).
 
-These should be kept in mind when making architectural decisions:
+## Build roadmap
 
-- **Rescheduling** — drag topics to a different day, or auto-reschedule remaining topics after a missed day
-- **Topic chat** — ask Claude questions about a specific topic in context of the uploaded documents (needs `ChatMessage` table: `id, topic_id, role, content, created_at`)
-- **Exam mode** — final review day before exam: shows all topics as a quick-scan summary
-- **Progress analytics** — completion rate per course, streak tracking, estimated hours remaining
-- **Freemium / Stripe** — free tier (limited plans/month), Premium Student (€7.99–12.99/month), Semester Pass (€19.99–29.99)
-- **Google OAuth** — add alongside email/password auth via Supabase Auth
-- **Vercel deployment** — not yet done; add env vars to Vercel dashboard when ready
-- **Adaptive replanning** — when a topic is marked skipped, offer to push it to the next available slot
-- **B2B / coach dashboard** — multiple student seats, progress overview for study coaches
+✅ = done · 🔲 = not started
+
+### Phase 1 — Email & Auth
+- 1.1 🔲 Custom email sending via Resend — connect a domain, configure Supabase SMTP, customize confirmation + password-reset templates with app branding
+- 1.2 🔲 Account settings page (`/account`) — change email, change password, "Delete my account" (purge all DB rows + Storage objects)
+- 1.3 ✅ Password reset flow — "Forgot password?" link on login → `/forgot-password` → email → `/reset-password`; `auth/callback` detects `type=recovery` and redirects correctly
+- 1.4 ✅ Email verification gate — `proxy.ts` checks `user.email_confirmed_at`, redirects unverified users to `/verify-email`; resend button calls `supabase.auth.resend()`
+- 1.5 ✅ Google OAuth — enabled in Supabase dashboard; "Continue with Google" button on login + signup pages
+
+### Phase 2 — Legal & Trust
+- 2.1 🔲 `/privacy` and `/terms` pages — required before charging; name Supabase / Anthropic / Stripe as data processors
+- 2.2 🔲 Cookie consent banner for EU visitors
+- 2.3 🔲 GDPR data controls — "Delete my account" in account settings (purge all DB + Storage), "Export my data" JSON download
+
+### Phase 3 — Subscriptions
+- 3.1 ✅ `profiles` table — `user_id, tier(free/paid/dev), stripe_customer_id, stripe_subscription_id`; auto-created by DB trigger on `auth.users` insert; RLS: SELECT-only for users (no UPDATE — tier is immutable from client)
+- 3.2 ✅ Tier limits — Free: 2 courses, 3 PDFs/course, 3 plans · Paid: unlimited · Dev: unlimited (set manually in DB only); enforced in all API routes with `getUserTier()` + `LIMITS` from `src/lib/tier.ts`
+- 3.3 ✅ Rate limiting — DB-based (no Redis); applied to upload (5/min), plans (10/min), courses (10/min)
+- 3.4 ✅ Stripe checkout — `POST /api/stripe/checkout` creates session (reuses existing customer); `POST /api/stripe/webhook` updates `profiles.tier` on subscription events; never touches dev accounts (`.neq("tier","dev")`)
+- 3.5 ✅ Stripe CLI local webhook forwarding — `stripe listen --forward-to localhost:3000/api/stripe/webhook`
+- 3.6 🔲 Upgrade prompt UI — when a free limit is hit, show inline upgrade CTA instead of raw error
+- 3.7 🔲 `/account` billing section — show current plan, "Upgrade" button (calls checkout), "Manage subscription" link (Stripe customer portal)
+- 3.8 🔲 Google AdSense integration for free-tier users — show non-intrusive banner ads; remove ads on upgrade
+
+### Phase 4 — Onboarding
+- 4.1 🔲 Empty states — calendar, dashboard, course page each explain what to do when there's no data yet
+- 4.2 🔲 First-time `/onboarding` wizard — 3 steps: create course → upload PDF → create plan; skip if user already has a course
+
+### Phase 5 — Agenda / Blocked Days
+- 5.1 🔲 `agenda_blocks` table — `id, user_id, date, title, created_at` with RLS
+- 5.2 🔲 Calendar UI — click an empty day cell to add/remove a personal block; shown in a distinct neutral colour
+- 5.3 🔲 Scheduler integration — fetch blocks between start/exam date, treat blocked days as fully unavailable
+
+### Phase 6 — Rescheduling
+- 6.1 🔲 Highlight past days in plan view that still have pending topics
+- 6.2 🔲 "Reschedule remaining" button — redistributes all pending topics from today forward, respecting agenda blocks and other plans
+- 6.3 🔲 Single-topic reschedule — move one topic to tomorrow or next available slot
+
+### Phase 7 — Notifications & Reminders
+- 7.1 🔲 `notification_preferences` column on `profiles` — opt-in/out per notification type
+- 7.2 🔲 Daily reminder email via Resend + Vercel cron — "You have X topics today for [Course]"
+- 7.3 🔲 Exam countdown email — sent 3 days before exam date: "Your exam is in 3 days — here's what's left"
+
+### Phase 8 — Study Experience
+- 8.1 🔲 Topic chat — "Ask Claude" button per topic; `POST /api/topics/[id]/chat`; `chat_messages(id, topic_id, user_id, role, content, created_at)` table; streaming response
+- 8.2 🔲 Exam mode — day-before-exam view: all topics as condensed bullet summaries generated by Claude; cached in `topics.study_guide`
+- 8.3 🔲 Progress analytics — completion %, study streak, estimated hours remaining per course
+- 8.4 🔲 Exam countdown badge — days-until-exam shown on plan view header and calendar cells
+
+### Phase 9 — Flashcards & Quizzes (paid only)
+- 9.1 🔲 `flashcards(id, topic_id, user_id, front, back)` and `quiz_questions(id, topic_id, user_id, question, options json, correct_index)` tables
+- 9.2 🔲 Claude Haiku generates 5-10 flashcards + 5 quiz questions per topic on demand; results cached in DB; `POST /api/topics/[id]/flashcards` and `/quiz`
+- 9.3 🔲 Day view — "Flashcards" and "Quiz" tab per course section; flip-card UI; scored quiz with results summary
+- 9.4 🔲 Free users see locked buttons with upgrade prompt
+
+### Phase 10 — Deploy to Vercel
+- 10.1 🔲 Confirm `npm run build` is clean; no secrets accidentally prefixed `NEXT_PUBLIC_`
+- 10.2 🔲 Unit tests for `planScheduler.ts` — basic scheduling, overflow spreading, blocked days, conflict avoidance
+- 10.3 🔲 GitHub Actions CI — run tests on every push; Vercel deploys only on green
+- 10.4 🔲 Connect GitHub repo to Vercel; set all env vars (Supabase, Anthropic, Stripe live keys, Resend)
+- 10.5 🔲 Supabase: set Site URL + Redirect URLs to production domain; switch Stripe to live mode keys
+- 10.6 🔲 Domain — buy on Namecheap / Porkbun, point to Vercel (auto SSL); or use `your-app.vercel.app` subdomain to start
+
+### Phase 11 — UI Redesign
+- 11.1 🔲 Coordinate with external contributor on colour system and component structure before any file changes to avoid conflicts
+- 11.2 🔲 Implement new design — replace current indigo/slate palette and card layouts; keep logic components untouched
