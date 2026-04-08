@@ -2,22 +2,31 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## What is AI Study Planner?
+## What is StudyTool?
 
-AI Study Planner is a web app that turns uploaded PDFs into personalised, day-by-day study schedules. It's built by Sven (SWE student at UvA) as a portfolio project and potential side business targeting students.
+**StudyTool** is a web app that turns uploaded PDFs into personalised, day-by-day study schedules. It's built by Sven (SWE student at UvA) as a portfolio project and potential side business targeting students.
+
+The app name is **StudyTool** — use this name consistently in UI text, emails, and copy. Do not use "AI Study Planner" or "StudyPlanner".
+
+**Placeholder contacts and URLs** — the following are placeholders that must be updated once the real domain and email are decided:
+- `privacy@studytool.app` in `/privacy` page
+- `studytool.app` references in `/privacy` and `/terms` pages
+- `NEXT_PUBLIC_SITE_URL` in `.env.local` (currently `http://localhost:3000`)
+- Supabase Site URL + Redirect URLs (in Supabase dashboard → Authentication → URL Configuration)
+- Stripe success/cancel URLs in the checkout session
 
 **The core problem it solves**: students have an exam date, a pile of PDFs, and no idea how to spread the material across the days they have left.
 
 **The product flow**:
 1. A student creates a **Course** (e.g. "Linear Algebra") and assigns it a colour.
-2. They upload one or more **PDFs** — lecture slides, textbooks, notes. Claude (Haiku) reads each PDF and extracts a structured list of **topics** with title, summary, and difficulty.
-3. They create a **Study Plan** by picking a start date, exam date, and daily hours budget. The scheduler distributes topics evenly across available days, respecting the hours limit and automatically working around days already filled by other courses.
+2. They upload one or more **PDFs** — lecture slides, textbooks, notes. Claude (Haiku) reads each PDF and extracts a structured list of **topics** with title, summary, difficulty, and estimated study time in minutes.
+3. They create a **Study Plan** by picking a start date, exam date, and daily hours budget. The scheduler distributes topics across available days using a minutes-based budget, respecting existing plans from other courses.
 4. They study day by day — marking topics as done or skipped.
 5. The central **Calendar** gives a bird's-eye view of every course's plan across the week, colour-coded by course.
 
 **Who it's for**: university students juggling multiple courses, each with its own exam date. The conflict-aware scheduler is the key differentiator — adding a new course automatically fits around existing ones.
 
-**Business model vision**: Freemium (free tier: limited plans/month), Premium Student (€7.99–12.99/mo), Semester Pass (€19.99–29.99). Potential B2B expansion for study coaches managing multiple students.
+**Business model**: Freemium. Free tier: 2 courses, 3 PDFs/course, 3 plans. Premium: €8/month, unlimited everything. Dev tier: unlimited, set manually in DB.
 
 ## UI architecture
 
@@ -27,8 +36,12 @@ All authenticated pages use a shared **AppLayout** (sidebar + topbar):
 components/
   AppLayout.tsx       → wraps every authenticated page
   AppSidebar.tsx      → left nav: Dashboard, Calendar, Courses links
-  AppTopBar.tsx       → top bar with page title and user menu
+  AppTopBar.tsx       → top bar with page title and user menu (+ Account link)
   SidebarClient.tsx   → client-side sidebar state (mobile toggle etc.)
+  CookieBanner.tsx    → EU cookie consent banner, mounted in root layout
+  UpgradeBanner.tsx   → shown inline when a free-tier limit is hit (403 response)
+  Skeleton.tsx        → animate-pulse skeleton primitive
+  PageShell.tsx       → static layout shell used by loading.tsx files
 ```
 
 Design system: **indigo** as primary accent (`indigo-600`), white backgrounds, `rounded-xl` inputs and buttons, `slate-*` for text hierarchy, Geist Sans font.
@@ -54,6 +67,7 @@ Always run `npm run build` before committing to catch TypeScript errors early.
 - **Framework**: Next.js 16 (App Router, TypeScript, Tailwind CSS)
 - **Database + Auth + Storage**: Supabase (PostgreSQL with RLS)
 - **AI**: Anthropic Claude API — `claude-haiku-4-5-20251001` for topic extraction
+- **Payments**: Stripe (subscriptions, billing portal)
 - **Deployment**: Vercel (not yet deployed)
 
 ### Next.js 16 differences from earlier versions
@@ -78,6 +92,9 @@ Always run `npm run build` before committing to catch TypeScript errors early.
 src/
 ├── app/
 │   ├── api/
+│   │   ├── account/
+│   │   │   ├── delete/           → DELETE auth user + all data + storage files
+│   │   │   └── export/           → GET JSON export of all user data (GDPR)
 │   │   ├── auth/signout/         → POST sign out
 │   │   ├── courses/              → GET list, POST create (tier-limited)
 │   │   ├── courses/[id]/         → GET detail, DELETE
@@ -88,7 +105,9 @@ src/
 │   │   ├── plans/[id]/           → DELETE + PATCH (regenerate)
 │   │   └── stripe/
 │   │       ├── checkout/         → POST create Stripe checkout session
+│   │       ├── portal/           → POST create Stripe billing portal session
 │   │       └── webhook/          → POST Stripe webhook (updates profiles.tier)
+│   ├── account/                  → billing page: plan badge, usage bars, upgrade/manage, GDPR controls
 │   ├── auth/callback/            → email confirmation + OAuth callback handler
 │   ├── calendar/                 → full calendar view (all courses)
 │   ├── courses/
@@ -96,7 +115,9 @@ src/
 │   │   └── [id]/                 → course detail, upload PDFs, create plan
 │   ├── dashboard/                → course cards, uncategorised docs/plans
 │   ├── forgot-password/          → request password reset email
+│   ├── privacy/                  → privacy policy page
 │   ├── reset-password/           → set new password (landed from email link)
+│   ├── terms/                    → terms of service page
 │   ├── verify-email/             → gate for unverified users with resend button
 │   ├── plans/[id]/               → day-by-day plan view, progress tracking
 │   ├── login/ signup/            → auth pages (with Google OAuth button)
@@ -104,9 +125,11 @@ src/
 ├── components/
 │   ├── AppLayout.tsx             → wraps every authenticated page
 │   ├── AppSidebar.tsx            → left nav
-│   ├── AppTopBar.tsx             → top bar with user menu
+│   ├── AppTopBar.tsx             → top bar with user menu and Account link
+│   ├── CookieBanner.tsx          → EU cookie consent, shown once, dismissed to localStorage
 │   ├── PageShell.tsx             → static layout shell used by loading.tsx files
-│   └── Skeleton.tsx              → animate-pulse skeleton primitive
+│   ├── Skeleton.tsx              → animate-pulse skeleton primitive
+│   └── UpgradeBanner.tsx         → amber banner shown on 403 limit responses with link to /account
 ├── lib/
 │   ├── anthropic.ts              → Anthropic client (server-side only)
 │   ├── planScheduler.ts          → pure scheduling logic (minutes-based), no DB imports
@@ -114,10 +137,10 @@ src/
 │   ├── stripe.ts                 → lazy Stripe singleton + PREMIUM_PRICE_ID
 │   ├── tier.ts                   → getUserTier(), LIMITS, Tier type
 │   └── supabase/
-│       ├── admin.ts              → service-role client (webhook use only)
+│       ├── admin.ts              → service-role client (webhook + account delete only)
 │       ├── client.ts             → browser client (use in "use client" components)
 │       └── server.ts             → server client (use in API routes + server components)
-└── proxy.ts                      → auth proxy; checks email_confirmed_at; protects /dashboard /courses /plans /calendar
+└── proxy.ts                      → auth proxy; checks email_confirmed_at; protects /dashboard /courses /plans /calendar /account
 ```
 
 ### Database schema
@@ -136,8 +159,8 @@ All tables have RLS — users can only access their own rows. `profiles` has SEL
 
 `course_id` is nullable on `documents` and `plans` for backwards compatibility with pre-course uploads.
 
-Pending migrations to run in Supabase SQL Editor:
-- `supabase/migration_profiles.sql` — creates profiles table + auto-create trigger on auth.users insert
+Migrations already applied:
+- `supabase/migration_profiles.sql` — profiles table + auto-create trigger on auth.users insert
 - `supabase/migration_minutes.sql` — adds `minutes` column to topics
 
 ### Key patterns
@@ -158,6 +181,10 @@ if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 **Stripe** — lazy singleton in `src/lib/stripe.ts` via `getStripe()` to avoid build-time failure when env var is empty. Webhook uses `createAdminClient()` (service role, bypasses RLS). Never initialize Stripe at module level.
 
 **Rate limiting** — DB-based (no Redis): `src/lib/rateLimit.ts` counts rows in a window using Supabase. Applied to all mutating API routes.
+
+**Upgrade prompt** — client components catch HTTP 403 responses and set `limitHit` state to show `<UpgradeBanner>` instead of a plain error. The banner links to `/account`.
+
+**Supabase trigger** — the `handle_new_user` trigger must use `public.` schema prefix and `SET search_path = public` or Supabase's auth system cannot find it.
 
 **Supabase nested joins** — avoid deep joins with `select("a, b(c(d))")` — they silently return null for ambiguous FKs. Fetch separately and join in JS instead.
 
@@ -184,15 +211,15 @@ For local webhook testing run `stripe listen --forward-to localhost:3000/api/str
 
 ### Phase 1 — Email & Auth
 - 1.1 🔲 Custom email sending via Resend — connect a domain, configure Supabase SMTP, customize confirmation + password-reset templates with app branding
-- 1.2 🔲 Account settings page (`/account`) — change email, change password, "Delete my account" (purge all DB rows + Storage objects)
+- 1.2 🔲 Account settings — change email and password fields on `/account`
 - 1.3 ✅ Password reset flow — "Forgot password?" link on login → `/forgot-password` → email → `/reset-password`; `auth/callback` detects `type=recovery` and redirects correctly
 - 1.4 ✅ Email verification gate — `proxy.ts` checks `user.email_confirmed_at`, redirects unverified users to `/verify-email`; resend button calls `supabase.auth.resend()`
 - 1.5 ✅ Google OAuth — enabled in Supabase dashboard; "Continue with Google" button on login + signup pages
 
 ### Phase 2 — Legal & Trust
-- 2.1 🔲 `/privacy` and `/terms` pages — required before charging; name Supabase / Anthropic / Stripe as data processors
-- 2.2 🔲 Cookie consent banner for EU visitors
-- 2.3 🔲 GDPR data controls — "Delete my account" in account settings (purge all DB + Storage), "Export my data" JSON download
+- 2.1 ✅ `/privacy` and `/terms` pages — data processor disclosures (Supabase, Anthropic, Stripe, Vercel), Dutch law governing clause, GDPR rights section
+- 2.2 ✅ Cookie consent banner — shown once per browser, dismissed to localStorage, links to privacy policy
+- 2.3 ✅ GDPR data controls — "Export my data" JSON download (`GET /api/account/export`) and "Delete my account" with confirmation (`DELETE /api/account/delete`); both on `/account` page
 
 ### Phase 3 — Subscriptions
 - 3.1 ✅ `profiles` table — `user_id, tier(free/paid/dev), stripe_customer_id, stripe_subscription_id`; auto-created by DB trigger on `auth.users` insert; RLS: SELECT-only for users (no UPDATE — tier is immutable from client)
@@ -200,8 +227,8 @@ For local webhook testing run `stripe listen --forward-to localhost:3000/api/str
 - 3.3 ✅ Rate limiting — DB-based (no Redis); applied to upload (5/min), plans (10/min), courses (10/min)
 - 3.4 ✅ Stripe checkout — `POST /api/stripe/checkout` creates session (reuses existing customer); `POST /api/stripe/webhook` updates `profiles.tier` on subscription events; never touches dev accounts (`.neq("tier","dev")`)
 - 3.5 ✅ Stripe CLI local webhook forwarding — `stripe listen --forward-to localhost:3000/api/stripe/webhook`
-- 3.6 🔲 Upgrade prompt UI — when a free limit is hit, show inline upgrade CTA instead of raw error
-- 3.7 🔲 `/account` billing section — show current plan, "Upgrade" button (calls checkout), "Manage subscription" link (Stripe customer portal)
+- 3.6 ✅ Upgrade prompt UI — `UpgradeBanner` shown inline on 403 responses in NewCourseForm, CourseUploadWidget, CoursePlanCreator; submit button disabled after limit hit
+- 3.7 ✅ `/account` billing page — plan badge, usage bars, upgrade button (checkout), manage subscription button (billing portal via `POST /api/stripe/portal`)
 - 3.8 🔲 Google AdSense integration for free-tier users — show non-intrusive banner ads; remove ads on upgrade
 
 ### Phase 4 — Onboarding
@@ -240,7 +267,7 @@ For local webhook testing run `stripe listen --forward-to localhost:3000/api/str
 - 10.2 🔲 Unit tests for `planScheduler.ts` — basic scheduling, overflow spreading, blocked days, conflict avoidance
 - 10.3 🔲 GitHub Actions CI — run tests on every push; Vercel deploys only on green
 - 10.4 🔲 Connect GitHub repo to Vercel; set all env vars (Supabase, Anthropic, Stripe live keys, Resend)
-- 10.5 🔲 Supabase: set Site URL + Redirect URLs to production domain; switch Stripe to live mode keys
+- 10.5 🔲 Supabase: set Site URL + Redirect URLs to production domain; switch Stripe to live mode keys; update placeholder emails/URLs in privacy + terms pages
 - 10.6 🔲 Domain — buy on Namecheap / Porkbun, point to Vercel (auto SSL); or use `your-app.vercel.app` subdomain to start
 
 ### Phase 11 — UI Redesign
