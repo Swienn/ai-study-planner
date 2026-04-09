@@ -34,8 +34,8 @@ All authenticated pages use a shared **AppLayout** (sidebar + topbar):
 ```
 components/
   AppLayout.tsx       → wraps every authenticated page
-  AppSidebar.tsx      → left nav: Dashboard, Calendar, Courses links
-  AppTopBar.tsx       → top bar with page title and user menu (+ Account link)
+  AppSidebar.tsx      → left nav: Calendar link + collapsible course list with plan dates; course names navigate to /courses/[id]
+  AppTopBar.tsx       → top bar with logo, user email, Account link, Sign out button
   SidebarClient.tsx   → client-side sidebar state (mobile toggle etc.)
   CookieBanner.tsx    → EU cookie consent banner, mounted in root layout
   UpgradeBanner.tsx   → shown inline when a free-tier limit is hit (403 response)
@@ -113,6 +113,7 @@ src/
 │   │   ├── new/                  → create course form
 │   │   └── [id]/                 → course detail, upload PDFs, create plan
 │   ├── dashboard/                → course cards, uncategorised docs/plans
+│   ├── onboarding/               → 3-step first-time wizard (course → PDF → plan); skips if user has courses
 │   ├── forgot-password/          → request password reset email
 │   ├── privacy/                  → privacy policy page
 │   ├── reset-password/           → set new password (landed from email link)
@@ -200,6 +201,7 @@ STRIPE_SECRET_KEY             # sk_test_... for dev, sk_live_... for prod
 STRIPE_WEBHOOK_SECRET         # whsec_... from Stripe CLI or dashboard
 STRIPE_PRICE_ID               # price_... for the Premium subscription product
 NEXT_PUBLIC_SITE_URL          # http://localhost:3000 in dev, production URL in prod
+RESEND_API_KEY                # for transactional emails (notification/reminder emails phase 7)
 ```
 
 For local webhook testing run `stripe listen --forward-to localhost:3000/api/stripe/webhook` (requires `stripe login` first).
@@ -228,11 +230,11 @@ For local webhook testing run `stripe listen --forward-to localhost:3000/api/str
 - 3.5 ✅ Stripe CLI local webhook forwarding — `stripe listen --forward-to localhost:3000/api/stripe/webhook`
 - 3.6 ✅ Upgrade prompt UI — `UpgradeBanner` shown inline on 403 responses in NewCourseForm, CourseUploadWidget, CoursePlanCreator; submit button disabled after limit hit
 - 3.7 ✅ `/account` billing page — plan badge, usage bars, upgrade button (checkout), manage subscription button (billing portal via `POST /api/stripe/portal`)
-- 3.8 🔲 Google AdSense integration for free-tier users — show non-intrusive banner ads; remove ads on upgrade
+- 3.8 🔲 Google AdSense integration for free-tier users — show non-intrusive banner ads; remove ads on upgrade (to be done last after all features complete)
 
 ### Phase 4 — Onboarding
-- 4.1 🔲 Empty states — calendar, dashboard, course page each explain what to do when there's no data yet
-- 4.2 🔲 First-time `/onboarding` wizard — 3 steps: create course → upload PDF → create plan; skip if user already has a course
+- 4.1 ✅ Empty states — dashboard (dashed card + "Get started →" to /onboarding), course page (dashed card when no PDFs, info box when no plan yet), calendar (icon + "Get started →" to /onboarding)
+- 4.2 ✅ First-time `/onboarding` wizard — 3 steps: create course → upload PDF (skippable) → create plan (skippable); redirects to /calendar on completion; server component skips wizard if user already has courses
 
 ### Phase 5 — Agenda / Blocked Days
 - 5.1 🔲 `agenda_blocks` table — `id, user_id, date, title, created_at` with RLS
@@ -262,12 +264,12 @@ For local webhook testing run `stripe listen --forward-to localhost:3000/api/str
 - 9.4 🔲 Free users see locked buttons with upgrade prompt
 
 ### Phase 10 — Deploy to Vercel
-- 10.1 🔲 Confirm `npm run build` is clean; no secrets accidentally prefixed `NEXT_PUBLIC_`
+- 10.1 ✅ `npm run build` clean; no secrets prefixed `NEXT_PUBLIC_`
 - 10.2 🔲 Unit tests for `planScheduler.ts` — basic scheduling, overflow spreading, blocked days, conflict avoidance
 - 10.3 🔲 GitHub Actions CI — run tests on every push; Vercel deploys only on green
-- 10.4 🔲 Connect GitHub repo to Vercel; set all env vars (Supabase, Anthropic, Stripe live keys, Resend)
-- 10.5 🔲 Supabase: set Site URL + Redirect URLs to production domain; switch Stripe to live mode keys; update placeholder emails/URLs in privacy + terms pages
-- 10.6 🔲 Domain — buy on Namecheap / Porkbun, point to Vercel (auto SSL); or use `your-app.vercel.app` subdomain to start
+- 10.4 ✅ Connected GitHub repo to Vercel; all env vars set (Supabase, Anthropic, Stripe sandbox keys, Resend API key)
+- 10.5 ✅ Supabase Site URL + Redirect URLs set to studytool.academy; privacy/terms pages updated; Stripe live mode pending until ready to accept real payments
+- 10.6 ✅ Domain studytool.academy on Namecheap, pointed to Vercel (auto SSL), auto-renew on, contacts verified
 
 ### Phase 11 — UI Redesign
 - 11.1 🔲 Coordinate with external contributor on colour system and component structure before any file changes to avoid conflicts
