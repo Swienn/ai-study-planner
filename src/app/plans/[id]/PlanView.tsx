@@ -207,6 +207,9 @@ export default function PlanView({
   // ── DAY VIEW ────────────────────────────────────────────────────────────────
   if (initialDate) {
     const dayItems = items.filter((i) => i.date === initialDate);
+    const overdueCount = items.filter(
+      (i) => isPast(i.date) && i.date !== initialDate && i.status === "pending"
+    ).length;
 
     const docIdsOnDay = new Set(
       dayItems.map((i) => i.topics.document_id).filter(Boolean)
@@ -239,11 +242,27 @@ export default function PlanView({
           </div>
           <Link
             href={`/plans/${planId}`}
-            className="text-xs text-slate-400 hover:text-slate-700 transition-colors"
+            className="text-sm px-3 py-1.5 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-colors font-medium"
           >
-            View full plan →
+            Full plan →
           </Link>
         </div>
+
+        {overdueCount > 0 && (
+          <Link
+            href={`/plans/${planId}`}
+            className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl mb-5 hover:bg-amber-100 transition-colors"
+          >
+            <svg className="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+            </svg>
+            <p className="text-sm text-amber-800 flex-1">
+              <span className="font-medium">{overdueCount} overdue {overdueCount === 1 ? "topic" : "topics"}</span> from previous days — view full plan to reschedule
+            </p>
+            <span className="text-xs text-amber-600 font-medium">View →</span>
+          </Link>
+        )}
+
 
         {dayDocs.length > 0 && (
           <div className="flex gap-1 mb-5 p-1 bg-slate-100 rounded-xl w-fit max-w-full overflow-x-auto">

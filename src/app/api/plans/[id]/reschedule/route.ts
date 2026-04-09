@@ -34,13 +34,12 @@ export async function POST(
     return Response.json({ error: "Exam date has passed" }, { status: 400 });
   }
 
-  // Fetch pending items from today onward (keep past completed/skipped as-is)
+  // Fetch ALL pending items (including overdue past days)
   const { data: pendingItems } = await supabase
     .from("plan_items")
     .select("id, topic_id, topics(id, position, minutes, document_id)")
     .eq("plan_id", id)
     .eq("status", "pending")
-    .gte("date", todayStr)
     .order("date");
 
   if (!pendingItems || pendingItems.length === 0) {
