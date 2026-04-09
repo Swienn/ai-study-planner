@@ -209,11 +209,11 @@ For local webhook testing run `stripe listen --forward-to localhost:3000/api/str
 ✅ = done · 🔲 = not started
 
 ### Phase 1 — Email & Auth
-- 1.1 🔲 Custom email sending via Resend — connect a domain, configure Supabase SMTP, customize confirmation + password-reset templates with app branding
+- 1.1 ✅ Custom email sending via Resend — domain verified (studytool.academy, eu-west-1), Supabase SMTP configured (smtp.resend.com:465), confirmation + password-reset templates customized
 - 1.2 🔲 Account settings — change email and password fields on `/account`
 - 1.3 ✅ Password reset flow — "Forgot password?" link on login → `/forgot-password` → email → `/reset-password`; `auth/callback` detects `type=recovery` and redirects correctly
 - 1.4 ✅ Email verification gate — `proxy.ts` checks `user.email_confirmed_at`, redirects unverified users to `/verify-email`; resend button calls `supabase.auth.resend()`
-- 1.5 ✅ Google OAuth — enabled in Supabase dashboard; "Continue with Google" button on login + signup pages
+- 1.5 🔲 Google OAuth — button exists on login + signup pages but not functional yet; needs Google Cloud Console OAuth credentials (requires credit card for Google Cloud) then enable in Supabase → Authentication → Providers → Google
 
 ### Phase 2 — Legal & Trust
 - 2.1 ✅ `/privacy` and `/terms` pages — data processor disclosures (Supabase, Anthropic, Stripe, Vercel), Dutch law governing clause, GDPR rights section
