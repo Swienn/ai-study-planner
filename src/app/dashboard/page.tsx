@@ -75,7 +75,21 @@ export default async function DashboardPage() {
           </div>
 
           {courseList.length === 0 ? (
-            <p className="text-sm text-slate-400">No courses yet. Create one to group your study material.</p>
+            <div className="text-center py-12 border border-dashed border-slate-200 rounded-2xl">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center mx-auto mb-3">
+                <svg className="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+                </svg>
+              </div>
+              <p className="font-medium text-slate-700 mb-1">No courses yet</p>
+              <p className="text-sm text-slate-400 mb-4">Create a course for each subject you&apos;re studying</p>
+              <Link
+                href="/courses/new"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors"
+              >
+                + Create your first course
+              </Link>
+            </div>
           ) : (
             <div className="flex flex-col gap-2">
               {courseList.map(course => (
