@@ -33,13 +33,13 @@ const difficultyColor = {
 } as const;
 
 const statusIcon: Record<Status, string> = {
-  pending: "○",
+  pending: "",
   completed: "✓",
   skipped: "–",
 };
 
 const statusStyle: Record<Status, string> = {
-  pending: "border-slate-300 text-slate-400",
+  pending: "border-slate-300",
   completed: "border-green-500 bg-green-500 text-white",
   skipped: "border-slate-300 bg-slate-100 text-slate-400",
 };
@@ -145,12 +145,7 @@ export default function PlanView({
   const [rescheduleError, setRescheduleError] = useState<string | null>(null);
 
   async function toggleStatus(item: PlanItem) {
-    const next: Status =
-      item.status === "pending"
-        ? "completed"
-        : item.status === "completed"
-        ? "skipped"
-        : "pending";
+    const next: Status = item.status === "completed" ? "pending" : "completed";
 
     setItems((prev) =>
       prev.map((i) => (i.id === item.id ? { ...i, status: next } : i))
@@ -327,7 +322,7 @@ export default function PlanView({
         )}
 
         <p className="text-xs text-slate-400 mt-6">
-          Click a topic to cycle: pending → done → skipped
+          Click a topic to mark it done or undone
         </p>
       </div>
     );
@@ -449,7 +444,7 @@ export default function PlanView({
       </div>
 
       <p className="text-xs text-slate-400 mt-6">
-        Click a topic to cycle: pending → done → skipped · Hover to reschedule a topic
+        Click a topic to mark it done or undone · Hover to move it to the next day
       </p>
     </div>
   );
