@@ -19,7 +19,7 @@ export default function PrivacyPage() {
           <h2 className="text-base font-semibold text-slate-900 mb-2">1. Who we are</h2>
           <p>
             StudyTool is operated by Sven (&ldquo;we&rdquo;, &ldquo;us&rdquo;, &ldquo;our&rdquo;). If you have questions about this policy, contact us at{" "}
-            <a href="mailto:privacy@studytool.app" className="text-indigo-600 hover:underline">privacy@studytool.app</a>.
+            <a href="mailto:privacy@studytool.academy" className="text-indigo-600 hover:underline">privacy@studytool.academy</a>.
           </p>
         </section>
 
@@ -59,7 +59,7 @@ export default function PrivacyPage() {
           <ul className="list-disc pl-5 flex flex-col gap-1.5 text-slate-600">
             <li>Export all your data as JSON from your <Link href="/account" className="text-indigo-600 hover:underline">Account</Link> page.</li>
             <li>Delete your account and all associated data permanently from your <Link href="/account" className="text-indigo-600 hover:underline">Account</Link> page.</li>
-            <li>Contact us at <a href="mailto:privacy@studytool.app" className="text-indigo-600 hover:underline">privacy@studytool.app</a> for any other requests.</li>
+            <li>Contact us at <a href="mailto:privacy@studytool.academy" className="text-indigo-600 hover:underline">privacy@studytool.academy</a> for any other requests.</li>
           </ul>
         </section>
 

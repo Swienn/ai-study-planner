@@ -8,12 +8,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The app name is **StudyTool** — use this name consistently in UI text, emails, and copy. Do not use "AI Study Planner" or "StudyPlanner".
 
-**Placeholder contacts and URLs** — the following are placeholders that must be updated once the real domain and email are decided:
-- `privacy@studytool.app` in `/privacy` page
-- `studytool.app` references in `/privacy` and `/terms` pages
-- `NEXT_PUBLIC_SITE_URL` in `.env.local` (currently `http://localhost:3000`)
-- Supabase Site URL + Redirect URLs (in Supabase dashboard → Authentication → URL Configuration)
-- Stripe success/cancel URLs in the checkout session
+**Domain**: `studytool.academy` — live at `https://studytool.academy`, deployed on Vercel.
+
+**Remaining URL/email placeholders** — the following still need updating when email is configured:
+- `privacy@studytool.academy` in `/privacy` page — needs a real inbox (set up via Resend or Namecheap email)
+- `NEXT_PUBLIC_SITE_URL` in `.env.local` stays `http://localhost:3000` for local dev; Vercel has `https://studytool.academy`
 
 **The core problem it solves**: students have an exam date, a pile of PDFs, and no idea how to spread the material across the days they have left.
 
