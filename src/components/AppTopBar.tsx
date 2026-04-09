@@ -37,12 +37,6 @@ export default async function AppTopBar() {
           </span>
         )}
         <Link
-          href="/dashboard"
-          className="text-sm text-slate-500 hover:text-slate-800 transition-colors hidden sm:block"
-        >
-          Manage
-        </Link>
-        <Link
           href="/account"
           className="text-sm text-slate-500 hover:text-slate-800 transition-colors hidden sm:block"
         >
