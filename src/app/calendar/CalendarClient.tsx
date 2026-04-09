@@ -88,6 +88,21 @@ export default function CalendarClient({
   const router = useRouter();
   const [weekOffset, setWeekOffset] = useState(0);
   const [blocked, setBlocked] = useState<Set<string>>(() => new Set(initialBlockedDates));
+  const [rescheduling, setRescheduling] = useState<Set<string>>(new Set());
+  const [allItems, setAllItems] = useState(items);
+
+  async function reschedule(planId: string) {
+    setRescheduling((prev) => new Set(prev).add(planId));
+    const res = await fetch(`/api/plans/${planId}/reschedule`, { method: "POST" });
+    const data = await res.json();
+    if (res.ok && data.updated?.length) {
+      const updatedMap = new Map(data.updated.map((u: { id: string; date: string }) => [u.id, u.date]));
+      setAllItems((prev) =>
+        prev.map((i) => updatedMap.has(i.item_id) ? { ...i, date: updatedMap.get(i.item_id) as string } : i)
+      );
+    }
+    setRescheduling((prev) => { const n = new Set(prev); n.delete(planId); return n; });
+  }
 
   async function toggleBlock(date: string) {
     // Optimistic update
@@ -106,9 +121,17 @@ export default function CalendarClient({
   const weekDates = getWeekDates(weekOffset);
   const todayStr = new Date().toISOString().split("T")[0];
 
+  // Courses with past pending topics
+  const overdueByCourse: Record<string, number> = {};
+  for (const item of allItems) {
+    if (item.course_id && item.status === "pending" && item.date < todayStr) {
+      overdueByCourse[item.course_id] = (overdueByCourse[item.course_id] ?? 0) + 1;
+    }
+  }
+
   // Group items by course_id → date
   const byCourseDate: Record<string, Record<string, CalendarItem[]>> = {};
-  for (const item of items) {
+  for (const item of allItems) {
     if (!item.course_id) continue;
     if (!byCourseDate[item.course_id]) byCourseDate[item.course_id] = {};
     if (!byCourseDate[item.course_id][item.date])
@@ -191,6 +214,31 @@ export default function CalendarClient({
           </a>
         </div>
       ) : (
+        <>
+        {/* Overdue banner */}
+        {Object.keys(overdueByCourse).length > 0 && (
+          <div className="mb-4 flex flex-col gap-2">
+            {courses.filter((c) => overdueByCourse[c.id] && c.planId).map((course) => (
+              <div key={course.id} className="flex items-center gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl">
+                <svg className="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+                <span className="flex-1 text-sm text-amber-800">
+                  <span className="font-medium">{course.title}</span>
+                  {" — "}{overdueByCourse[course.id]} overdue {overdueByCourse[course.id] === 1 ? "topic" : "topics"} from past days
+                </span>
+                <button
+                  onClick={() => reschedule(course.planId!)}
+                  disabled={rescheduling.has(course.planId!)}
+                  className="text-sm px-3 py-1.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50 font-medium flex-shrink-0"
+                >
+                  {rescheduling.has(course.planId!) ? "Rescheduling…" : "Reschedule →"}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <div className="min-w-[640px]">
             {/* Header row */}
@@ -266,9 +314,12 @@ export default function CalendarClient({
                       className="flex items-center gap-2.5 px-3 py-3 rounded-xl hover:bg-slate-50 transition-colors group"
                     >
                       <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${dot}`} />
-                      <span className="text-sm font-medium text-slate-700 truncate group-hover:text-slate-900">
+                      <span className="text-sm font-medium text-slate-700 truncate group-hover:text-slate-900 flex-1">
                         {course.title}
                       </span>
+                      {overdueByCourse[course.id] && (
+                        <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" title="Has overdue topics" />
+                      )}
                     </a>
 
                     {/* Day cells */}
@@ -330,6 +381,7 @@ export default function CalendarClient({
             </div>
           </div>
         </div>
+        </>
       )}
     </div>
   );
