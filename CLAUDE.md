@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The app name is **StudyTool** — use this name consistently in UI text, emails, and copy. Do not use "AI Study Planner" or "StudyPlanner".
 
-**Domain**: `studytool.academy` — live at `https://studytool.academy`, deployed on Vercel.
+**Domain**: `studytool.academy` — live at `https://studytool.academy`, deployed on Vercel. Email forwarding: `privacy@studytool.academy` → personal inbox.
 
 **Remaining URL/email placeholders** — the following still need updating when email is configured:
 - `privacy@studytool.academy` in `/privacy` page — needs a real inbox (set up via Resend or Namecheap email)
@@ -213,7 +213,7 @@ For local webhook testing run `stripe listen --forward-to localhost:3000/api/str
 - 1.2 🔲 Account settings — change email and password fields on `/account`
 - 1.3 ✅ Password reset flow — "Forgot password?" link on login → `/forgot-password` → email → `/reset-password`; `auth/callback` detects `type=recovery` and redirects correctly
 - 1.4 ✅ Email verification gate — `proxy.ts` checks `user.email_confirmed_at`, redirects unverified users to `/verify-email`; resend button calls `supabase.auth.resend()`
-- 1.5 🔲 Google OAuth — button exists on login + signup pages but not functional yet; needs Google Cloud Console OAuth credentials (requires credit card for Google Cloud) then enable in Supabase → Authentication → Providers → Google
+- 1.5 ✅ Google OAuth — Google Cloud OAuth client created, credentials added to Supabase → Authentication → Providers → Google; button on login + signup pages
 
 ### Phase 2 — Legal & Trust
 - 2.1 ✅ `/privacy` and `/terms` pages — data processor disclosures (Supabase, Anthropic, Stripe, Vercel), Dutch law governing clause, GDPR rights section
