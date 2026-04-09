@@ -369,28 +369,25 @@ export default function PlanView({
         </div>
       </div>
 
-      {/* Reschedule remaining button */}
-      {hasPastPending && (
-        <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl mb-6">
-          <svg className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+      {/* Reschedule button — always visible */}
+      <div className={`flex items-center gap-3 p-3 rounded-xl mb-6 border ${hasPastPending ? "bg-amber-50 border-amber-200" : "bg-slate-50 border-slate-200"}`}>
+        {hasPastPending && (
+          <svg className="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
           </svg>
-          <div className="flex-1">
-            <p className="text-sm font-medium text-amber-900">You have overdue topics</p>
-            <p className="text-xs text-amber-700 mt-0.5">Some past days still have pending topics. Reschedule them from today forward.</p>
-          </div>
-          <button
-            onClick={rescheduleAll}
-            disabled={rescheduling}
-            className="flex-shrink-0 text-sm px-3 py-1.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50 font-medium"
-          >
-            {rescheduling ? "Rescheduling…" : "Reschedule remaining"}
-          </button>
-        </div>
-      )}
-      {rescheduleError && (
-        <p className="text-sm text-red-600 mb-4">{rescheduleError}</p>
-      )}
+        )}
+        <p className={`flex-1 text-sm ${hasPastPending ? "text-amber-800 font-medium" : "text-slate-500"}`}>
+          {hasPastPending ? "You have overdue topics — reschedule from today forward." : "Redistribute all pending topics from today forward."}
+        </p>
+        {rescheduleError && <p className="text-xs text-red-600">{rescheduleError}</p>}
+        <button
+          onClick={rescheduleAll}
+          disabled={rescheduling}
+          className={`flex-shrink-0 text-sm px-3 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-50 ${hasPastPending ? "bg-amber-600 text-white hover:bg-amber-700" : "border border-slate-200 text-slate-600 hover:bg-white"}`}
+        >
+          {rescheduling ? "Rescheduling…" : "Reschedule"}
+        </button>
+      </div>
 
       {/* Day groups */}
       <div className="flex flex-col gap-6">

@@ -89,6 +89,7 @@ export default function CalendarClient({
   const [weekOffset, setWeekOffset] = useState(0);
   const [blocked, setBlocked] = useState<Set<string>>(() => new Set(initialBlockedDates));
   const [rescheduling, setRescheduling] = useState<Set<string>>(new Set());
+  const [reschedulingAll, setReschedulingAll] = useState(false);
   const [allItems, setAllItems] = useState(items);
 
   async function reschedule(planId: string) {
@@ -102,6 +103,22 @@ export default function CalendarClient({
       );
     }
     setRescheduling((prev) => { const n = new Set(prev); n.delete(planId); return n; });
+  }
+
+  async function rescheduleAll() {
+    setReschedulingAll(true);
+    const planIds = courses.map((c) => c.planId).filter(Boolean) as string[];
+    for (const planId of planIds) {
+      const res = await fetch(`/api/plans/${planId}/reschedule`, { method: "POST" });
+      const data = await res.json();
+      if (res.ok && data.updated?.length) {
+        const updatedMap = new Map(data.updated.map((u: { id: string; date: string }) => [u.id, u.date]));
+        setAllItems((prev) =>
+          prev.map((i) => updatedMap.has(i.item_id) ? { ...i, date: updatedMap.get(i.item_id) as string } : i)
+        );
+      }
+    }
+    setReschedulingAll(false);
   }
 
   async function toggleBlock(date: string) {
@@ -187,6 +204,15 @@ export default function CalendarClient({
             Today
           </button>
         )}
+        <div className="ml-auto">
+          <button
+            onClick={rescheduleAll}
+            disabled={reschedulingAll}
+            className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors font-medium disabled:opacity-50"
+          >
+            {reschedulingAll ? "Rescheduling…" : "Reschedule all"}
+          </button>
+        </div>
       </div>
 
       {/* Calendar grid */}
