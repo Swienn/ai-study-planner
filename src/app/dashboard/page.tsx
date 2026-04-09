@@ -84,10 +84,10 @@ export default async function DashboardPage() {
               <p className="font-medium text-slate-700 mb-1">No courses yet</p>
               <p className="text-sm text-slate-400 mb-4">Create a course for each subject you&apos;re studying</p>
               <Link
-                href="/courses/new"
+                href="/onboarding"
                 className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors"
               >
-                + Create your first course
+                Get started →
               </Link>
             </div>
           ) : (
