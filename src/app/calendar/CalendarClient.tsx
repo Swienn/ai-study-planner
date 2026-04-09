@@ -79,12 +79,30 @@ function formatWeekRange(dates: string[]) {
 export default function CalendarClient({
   items,
   courses,
+  initialBlockedDates = [],
 }: {
   items: CalendarItem[];
   courses: CourseWithPlan[];
+  initialBlockedDates?: string[];
 }) {
   const router = useRouter();
   const [weekOffset, setWeekOffset] = useState(0);
+  const [blocked, setBlocked] = useState<Set<string>>(() => new Set(initialBlockedDates));
+
+  async function toggleBlock(date: string) {
+    // Optimistic update
+    setBlocked((prev) => {
+      const next = new Set(prev);
+      if (next.has(date)) next.delete(date);
+      else next.add(date);
+      return next;
+    });
+    await fetch("/api/agenda-blocks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date }),
+    });
+  }
   const weekDates = getWeekDates(weekOffset);
   const todayStr = new Date().toISOString().split("T")[0];
 
@@ -197,6 +215,34 @@ export default function CalendarClient({
                       {d.getDate()}
                     </p>
                   </div>
+                );
+              })}
+            </div>
+
+            {/* Blocked days row */}
+            <div className="grid gap-1.5 mb-1" style={{ gridTemplateColumns: "180px repeat(7, 1fr)" }}>
+              <div className="flex items-center px-3 py-2">
+                <span className="text-xs font-medium text-slate-400">Blocked</span>
+              </div>
+              {weekDates.map((date) => {
+                const isBlocked = blocked.has(date);
+                return (
+                  <button
+                    key={date}
+                    onClick={() => toggleBlock(date)}
+                    title={isBlocked ? "Unblock this day" : "Block this day"}
+                    className={`rounded-xl py-2 px-2 min-h-[40px] flex items-center justify-center transition-colors ${
+                      isBlocked
+                        ? "bg-slate-100 hover:bg-slate-200"
+                        : "hover:bg-slate-50"
+                    }`}
+                  >
+                    {isBlocked && (
+                      <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    )}
+                  </button>
                 );
               })}
             </div>

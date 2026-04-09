@@ -13,7 +13,7 @@ export default async function CalendarPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ data: userPlans }, { data: courses }] = await Promise.all([
+  const [{ data: userPlans }, { data: courses }, { data: agendaBlocks }] = await Promise.all([
     supabase
       .from("plans")
       .select("id, title, course_id")
@@ -23,6 +23,10 @@ export default async function CalendarPage() {
       .select("id, title, color")
       .eq("user_id", user.id)
       .order("created_at"),
+    supabase
+      .from("agenda_blocks")
+      .select("date")
+      .eq("user_id", user.id),
   ]);
 
   const planIds = (userPlans ?? []).map((p) => p.id);
@@ -90,7 +94,11 @@ export default async function CalendarPage() {
       <div className="flex items-center justify-between px-6 pt-6 mb-2">
         <h1 className="text-2xl font-bold text-slate-900">Calendar</h1>
       </div>
-      <CalendarClient items={items} courses={coursesWithPlan} />
+      <CalendarClient
+        items={items}
+        courses={coursesWithPlan}
+        initialBlockedDates={(agendaBlocks ?? []).map((b) => b.date)}
+      />
     </AppLayout>
   );
 }

@@ -30,21 +30,24 @@ function daysBetween(a: string, b: string): number {
  * @param examDateStr    - exam date, excluded from scheduling (YYYY-MM-DD)
  * @param hoursPerDay    - hours the student plans to study per day
  * @param existingLoad   - map of date → minutes already scheduled from other plans
+ * @param blockedDates   - set of dates to skip entirely (agenda blocks)
  */
 export function schedulePlan(
   topics: TopicWithTime[],
   startDateStr: string,
   examDateStr: string,
   hoursPerDay: number,
-  existingLoad: Map<string, number>
+  existingLoad: Map<string, number>,
+  blockedDates?: Set<string>
 ): ScheduledItem[] {
   const budgetPerDay = hoursPerDay * 60; // convert to minutes
   const totalDays = Math.max(1, daysBetween(startDateStr, examDateStr));
 
-  // Build list of candidate dates (startDate up to but not including exam day)
+  // Build list of candidate dates, skipping blocked days
   const candidates: string[] = [];
   for (let i = 0; i < totalDays; i++) {
-    candidates.push(addDays(startDateStr, i));
+    const date = addDays(startDateStr, i);
+    if (!blockedDates?.has(date)) candidates.push(date);
   }
   if (candidates.length === 0) candidates.push(startDateStr);
 

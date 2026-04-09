@@ -145,10 +145,19 @@ export async function POST(request: Request) {
     });
   }
 
-  // Schedule topics — use provided start_date or default to tomorrow
+  // Fetch user's agenda blocks between start and exam date
   const todayStr = new Date().toISOString().split("T")[0];
   const startStr = start_date && start_date > todayStr ? start_date : addDays(todayStr, 1);
-  const scheduled = schedulePlan(topics, startStr, exam_date, parsedHours, existingLoad);
+
+  const { data: blocks } = await supabase
+    .from("agenda_blocks")
+    .select("date")
+    .eq("user_id", user.id)
+    .gte("date", startStr)
+    .lte("date", exam_date);
+
+  const blockedDates = new Set((blocks ?? []).map((b) => b.date));
+  const scheduled = schedulePlan(topics, startStr, exam_date, parsedHours, existingLoad, blockedDates);
 
   // Create plan
   const { data: plan, error: planError } = await supabase
