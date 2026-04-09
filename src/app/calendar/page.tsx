@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+
+export const dynamic = "force-dynamic";
 import AppLayout from "@/components/AppLayout";
 import CalendarClient, {
   type CalendarItem,

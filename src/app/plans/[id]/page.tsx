@@ -3,6 +3,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import AppLayout from "@/components/AppLayout";
 import PlanView from "./PlanView";
+
+export const dynamic = "force-dynamic";
 import DeletePlanButton from "./DeletePlanButton";
 
 export default async function PlanPage({

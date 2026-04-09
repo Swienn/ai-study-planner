@@ -1,6 +1,8 @@
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+
+export const dynamic = "force-dynamic";
 import AppLayout from "@/components/AppLayout";
 import CourseUploadWidget from "./CourseUploadWidget";
 import CoursePlanCreator from "./CoursePlanCreator";
