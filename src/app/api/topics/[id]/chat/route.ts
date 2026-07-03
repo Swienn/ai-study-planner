@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { anthropic } from "@/lib/anthropic";
 import { checkRateLimit } from "@/lib/rateLimit";
+import { getUserTier } from "@/lib/tier";
 import { logError } from "@/lib/errorLog";
 
 export const runtime = "nodejs";
@@ -40,6 +41,12 @@ export async function POST(
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id: topicId } = await params;
+
+  // Ask Claude is a paid feature (unbounded token usage) — free tier can't use it.
+  const tier = await getUserTier(supabase, user.id);
+  if (tier === "free") {
+    return Response.json({ error: "Ask Claude is a Premium feature." }, { status: 403 });
+  }
 
   let body: unknown;
   try {

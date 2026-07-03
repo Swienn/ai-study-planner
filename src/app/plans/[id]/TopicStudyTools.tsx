@@ -53,7 +53,7 @@ export default function TopicStudyTools({ topicId, isPaid }: { topicId: string; 
           </svg>
           Summary
         </ToolButton>
-        <ToolButton active={panel === "chat"} onClick={() => toggle("chat")}>
+        <ToolButton active={panel === "chat"} locked={!isPaid} onClick={() => toggle("chat")}>
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.86 9.86 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
           </svg>
@@ -69,7 +69,8 @@ export default function TopicStudyTools({ topicId, isPaid }: { topicId: string; 
 
       {panel === "summary" && <TopicSummary topicId={topicId} />}
 
-      {panel === "chat" && <TopicChat topicId={topicId} />}
+      {panel === "chat" &&
+        (isPaid ? <TopicChat topicId={topicId} /> : <UpgradePrompt feature="Ask Claude" />)}
 
       {panel === "flashcards" &&
         (isPaid ? <FlashcardDeck topicId={topicId} /> : <UpgradePrompt feature="Flashcards" />)}
@@ -84,7 +85,7 @@ function UpgradePrompt({ feature }: { feature: string }) {
   return (
     <div className="mt-2 border border-amber-200 bg-amber-50 rounded-xl p-4 text-center">
       <p className="text-sm text-amber-800 mb-3">
-        {feature} are a Premium feature. Upgrade for AI-generated flashcards and quizzes on every topic.
+        {feature} is a Premium feature. Upgrade to unlock AI tutoring, flashcards, and quizzes on every topic.
       </p>
       <Link
         href="/account"
