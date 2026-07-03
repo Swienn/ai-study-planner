@@ -157,7 +157,7 @@ export default function CalendarClient({
   }
 
   return (
-    <div className="p-6">
+    <div className="p-6 pb-16">
       {/* Week navigation */}
       <div className="flex items-center gap-3 mb-8">
         <button
@@ -366,7 +366,7 @@ export default function CalendarClient({
                             router.push(`/plans/${course.planId}?date=${date}`)
                           }
                           disabled={!canNavigate}
-                          className={`rounded-xl py-3 px-2 transition-all text-center min-h-[60px] flex flex-col items-center justify-center ${
+                          className={`rounded-xl py-3 px-2 transition-all text-center min-h-[84px] flex flex-col items-center justify-center ${
                             total > 0
                               ? `ring-1 ${cellColors} cursor-pointer`
                               : isToday

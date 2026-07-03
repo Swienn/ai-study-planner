@@ -67,9 +67,10 @@ export default async function AccountPage() {
 
   return (
     <AppLayout>
-      <div className="p-6 max-w-lg flex flex-col gap-6">
-        <h1 className="text-2xl font-bold text-slate-900">Account</h1>
+      <div className="p-6 pb-16 max-w-4xl">
+        <h1 className="text-2xl font-bold text-slate-900 mb-6">Account</h1>
 
+        <div className="columns-1 lg:columns-2 gap-6 [&>section]:mb-6 [&>section]:break-inside-avoid">
         {/* Plan card */}
         <section className="p-5 border border-slate-200 rounded-xl bg-white">
           <div className="flex items-center justify-between mb-4">
@@ -145,9 +146,10 @@ export default async function AccountPage() {
             <DeleteAccountButton />
           </div>
         </section>
+        </div>
 
         {/* Legal links */}
-        <div className="flex gap-4 text-xs text-slate-400">
+        <div className="mt-6 flex gap-4 text-xs text-slate-400">
           <Link href="/privacy" className="hover:text-slate-600 transition-colors">Privacy policy</Link>
           <Link href="/terms" className="hover:text-slate-600 transition-colors">Terms of service</Link>
         </div>
