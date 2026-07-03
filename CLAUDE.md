@@ -236,6 +236,15 @@ CRON_SECRET                   # random secret; Vercel Cron sends it as `Authoriz
 
 For local webhook testing run `stripe listen --forward-to localhost:3000/api/stripe/webhook` (requires `stripe login` first).
 
+**Stripe go-live checklist** — the code is fully env-driven, so switching from test/sandbox to live is *config only, no code changes*:
+1. **Activate** the Stripe account for live payments (business + bank details). This can require identity/bank verification and is the long pole.
+2. Toggle the dashboard to **Live mode**, then create the Premium **product + €8/month recurring price** (products/prices do NOT carry over from test mode) → copy the live `price_...` ID.
+3. Developers → API keys (Live) → copy `sk_live_...`.
+4. Developers → **Webhooks → Add endpoint**: `https://studytool.academy/api/stripe/webhook`; subscribe to exactly these events the handler uses: `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted` → copy the live signing secret `whsec_...`.
+5. Settings → Billing → **Customer portal → activate & save in Live mode** (portal config is per-mode; `billingPortal.sessions.create` throws if the live portal isn't configured).
+6. **Vercel → Production env vars**: set `STRIPE_SECRET_KEY=sk_live_...`, `STRIPE_PRICE_ID=<live price>`, `STRIPE_WEBHOOK_SECRET=<live whsec>`; confirm `NEXT_PUBLIC_SITE_URL=https://studytool.academy`. **Redeploy** so the new vars take effect.
+7. **Test end-to-end**: upgrade with a real card (then refund yourself in Stripe), confirm the webhook flips `profiles.tier` to `paid` and that "Manage subscription" opens the live portal. Dev accounts are never downgraded (`.neq("tier","dev")`). The subscription carries `supabase_user_id` via `subscription_data.metadata`, which the webhook reads to find the user.
+
 **Cron / reminder emails** — `vercel.json` schedules `GET /api/cron/reminders` daily at 06:00 UTC (≈07–08 CET). The route uses the service-role client to scan all users' plans, sending a daily reminder (today's pending topics) and an exam countdown (3 days before an exam). It respects `profiles.notification_preferences` and is gated on the `CRON_SECRET` header. Vercel Cron only fires in production. To test locally: `curl -H "Authorization: Bearer <CRON_SECRET>" http://localhost:3000/api/cron/reminders`.
 
 ## Build roadmap
@@ -300,7 +309,7 @@ For local webhook testing run `stripe listen --forward-to localhost:3000/api/str
 - 10.2 ✅ Unit tests for `planScheduler.ts` (Vitest) — `src/lib/planScheduler.test.ts`, 12 tests: scheduling, order, budget, overflow spreading, blocked days, conflict avoidance, edge cases. Run with `npm test`. Caught + fixed a UTC/local off-by-one in `addDays`/`daysBetween`.
 - 10.3 ✅ GitHub Actions CI — `.github/workflows/ci.yml` runs lint + tests on every push/PR to main. (To gate Vercel deploys on green, set Vercel → Git → "Only deploy if CI passes" or an Ignored Build Step; see notes below.)
 - 10.4 ✅ Connected GitHub repo to Vercel; all env vars set (Supabase, Anthropic, Stripe sandbox keys, Resend API key)
-- 10.5 ✅ Supabase Site URL + Redirect URLs set to studytool.academy; privacy/terms pages updated; Stripe live mode pending until ready to accept real payments
+- 10.5 ◻ Supabase Site URL + Redirect URLs set to studytool.academy ✅; privacy/terms pages updated ✅; **Stripe live mode** still pending — see the "Stripe go-live checklist" above (config only, no code changes)
 - 10.6 ✅ Domain studytool.academy on Namecheap, pointed to Vercel (auto SSL), auto-renew on, contacts verified
 - 10.7 ✅ Error logging / observability — `error_logs` table (`migration_error_logs.sql`, RLS-locked to service role); `src/lib/errorLog.ts` `logError()` helper (never throws); client boundaries `src/app/error.tsx` + `global-error.tsx` POST to `/api/errors`; server routes log via `logError` (e.g. upload extraction failure). View errors in Supabase → Table editor → `error_logs` (newest first).
 
