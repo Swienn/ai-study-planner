@@ -3,6 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import Logo from "@/components/Logo";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState("");
@@ -14,16 +19,13 @@ export default function ResetPasswordPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-
     if (password !== confirm) {
       setError("Passwords do not match");
       return;
     }
-
     setLoading(true);
     const supabase = createClient();
     const { error } = await supabase.auth.updateUser({ password });
-
     if (error) {
       setError(error.message);
       setLoading(false);
@@ -33,55 +35,45 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <main className="flex flex-col items-center justify-center min-h-screen p-8 bg-white">
-      <div className="w-full max-w-sm">
-        <div className="flex justify-center mb-6">
-          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center">
-            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
-            </svg>
-          </div>
-        </div>
-        <h1 className="text-2xl font-bold text-slate-900 mb-6 text-center">Set new password</h1>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="password" className="text-sm font-medium text-slate-700">
-              New password
-            </label>
-            <input
-              id="password"
-              type="password"
-              required
-              minLength={6}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="confirm" className="text-sm font-medium text-slate-700">
-              Confirm new password
-            </label>
-            <input
-              id="confirm"
-              type="password"
-              required
-              minLength={6}
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              className="border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-            />
-          </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="bg-indigo-600 text-white rounded-xl py-2.5 text-sm font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50"
-          >
-            {loading ? "Updating…" : "Update password"}
-          </button>
-        </form>
+    <main className="relative flex min-h-screen flex-col items-center justify-center p-6">
+      <div className="bg-brand-gradient-soft pointer-events-none absolute inset-0 -z-10" />
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(60%_50%_at_50%_0%,rgba(139,92,246,0.10),transparent)]" />
+      <div className="mb-8 flex justify-center">
+        <Logo size="lg" href="/" />
       </div>
+      <Card className="w-full max-w-sm shadow-xl shadow-slate-200/50">
+        <CardContent className="pt-6">
+          <h1 className="mb-6 text-center text-xl font-bold text-slate-900">Set a new password</h1>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="password">New password</Label>
+              <Input
+                id="password"
+                type="password"
+                required
+                minLength={6}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="confirm">Confirm new password</Label>
+              <Input
+                id="confirm"
+                type="password"
+                required
+                minLength={6}
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+              />
+            </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <Button type="submit" disabled={loading} className="bg-brand-gradient w-full border-0 hover:opacity-90">
+              {loading ? "Updating…" : "Update password"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </main>
   );
 }

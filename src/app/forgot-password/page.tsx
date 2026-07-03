@@ -3,6 +3,20 @@
 import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import Logo from "@/components/Logo";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
+
+function Backdrop() {
+  return (
+    <>
+      <div className="bg-brand-gradient-soft pointer-events-none absolute inset-0 -z-10" />
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(60%_50%_at_50%_0%,rgba(139,92,246,0.10),transparent)]" />
+    </>
+  );
+}
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -10,85 +24,59 @@ export default function ForgotPasswordPage() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const logo = (
-    <div className="flex justify-center mb-6">
-      <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center">
-        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
-        </svg>
-      </div>
-    </div>
-  );
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
-
     const supabase = createClient();
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${location.origin}/auth/callback?type=recovery`,
     });
-
-    if (error) {
-      setError(error.message);
-    } else {
-      setSent(true);
-    }
+    if (error) setError(error.message);
+    else setSent(true);
     setLoading(false);
   }
 
-  if (sent) {
-    return (
-      <main className="flex flex-col items-center justify-center min-h-screen p-8 text-center bg-white">
-        <div className="max-w-sm">
-          {logo}
-          <h1 className="text-2xl font-bold text-slate-900 mb-3">Check your email</h1>
-          <p className="text-slate-500">
-            We sent a password reset link to <strong>{email}</strong>.
-          </p>
-        </div>
-      </main>
-    );
-  }
-
   return (
-    <main className="flex flex-col items-center justify-center min-h-screen p-8 bg-white">
-      <div className="w-full max-w-sm">
-        {logo}
-        <h1 className="text-2xl font-bold text-slate-900 mb-2 text-center">Reset your password</h1>
-        <p className="text-sm text-slate-500 text-center mb-6">
-          Enter your email and we&apos;ll send you a reset link.
-        </p>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="email" className="text-sm font-medium text-slate-700">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-            />
-          </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="bg-indigo-600 text-white rounded-xl py-2.5 text-sm font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50"
-          >
-            {loading ? "Sending…" : "Send reset link"}
-          </button>
-        </form>
-        <p className="text-sm text-slate-500 mt-4 text-center">
-          <Link href="/login" className="text-indigo-600 font-medium hover:underline">
-            Back to log in
-          </Link>
-        </p>
+    <main className="relative flex min-h-screen flex-col items-center justify-center p-6">
+      <Backdrop />
+      <div className="mb-8 flex justify-center">
+        <Logo size="lg" href="/" />
       </div>
+      <Card className="w-full max-w-sm shadow-xl shadow-slate-200/50">
+        <CardContent className="pt-6">
+          {sent ? (
+            <div className="text-center">
+              <h1 className="mb-3 text-xl font-bold text-slate-900">Check your email</h1>
+              <p className="text-slate-500">
+                We sent a password reset link to <strong>{email}</strong>.
+              </p>
+            </div>
+          ) : (
+            <>
+              <h1 className="mb-2 text-center text-xl font-bold text-slate-900">Reset your password</h1>
+              <p className="mb-6 text-center text-sm text-muted-foreground">
+                Enter your email and we&apos;ll send you a reset link.
+              </p>
+              <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="email">Email</Label>
+                  <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+                </div>
+                {error && <p className="text-sm text-destructive">{error}</p>}
+                <Button type="submit" disabled={loading} className="bg-brand-gradient w-full border-0 hover:opacity-90">
+                  {loading ? "Sending…" : "Send reset link"}
+                </Button>
+              </form>
+              <p className="mt-4 text-center text-sm">
+                <Link href="/login" className="font-medium text-primary hover:underline">
+                  Back to log in
+                </Link>
+              </p>
+            </>
+          )}
+        </CardContent>
+      </Card>
     </main>
   );
 }
