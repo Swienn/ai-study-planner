@@ -21,10 +21,17 @@ export async function PATCH(
     return Response.json({ error: "Invalid status" }, { status: 400 });
   }
 
+  // Stamp completion time when marking done (for study-streak analytics),
+  // clear it when un-completing.
+  const patch: { status: Status; completed_at: string | null } = {
+    status: status as Status,
+    completed_at: status === "completed" ? new Date().toISOString() : null,
+  };
+
   // RLS ensures users can only update their own plan items
   const { data, error } = await supabase
     .from("plan_items")
-    .update({ status })
+    .update(patch)
     .eq("id", id)
     .select()
     .single();
