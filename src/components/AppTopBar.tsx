@@ -9,7 +9,7 @@ export default async function AppTopBar() {
   } = await supabase.auth.getUser();
 
   return (
-    <header className="h-14 border-b border-border flex items-center justify-between px-6 bg-background/80 backdrop-blur-sm flex-shrink-0 z-10">
+    <header className="h-14 border-b border-border flex items-center justify-between pl-16 pr-6 lg:pl-6 bg-background/80 backdrop-blur-sm flex-shrink-0 z-10">
       <Logo href="/calendar" size="sm" />
 
       <div className="flex items-center gap-4">

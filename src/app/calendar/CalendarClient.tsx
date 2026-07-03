@@ -265,7 +265,7 @@ export default function CalendarClient({
           </div>
         )}
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto p-1.5">
           <div className="min-w-[640px]">
             {/* Header row */}
             <div className="grid gap-1.5 mb-2" style={{ gridTemplateColumns: "180px repeat(7, 1fr)" }}>
