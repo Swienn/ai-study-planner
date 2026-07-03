@@ -182,6 +182,16 @@ const { data: { user } } = await supabase.auth.getUser();
 if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 ```
 
+**Auth callback (`/auth/callback`)** — handles BOTH flows: the email-link OTP flow
+(`?token_hash=...&type=signup|recovery|email_change` → `verifyOtp`) and the PKCE/OAuth
+code flow (`?code=...` → `exchangeCodeForSession`). On failure it redirects to
+`/login?error=confirmation_failed` rather than silently bouncing through a protected page.
+⚠️ **Supabase dashboard requirement:** the confirmation/recovery email templates
+(Authentication → Email Templates) MUST use the token_hash format, e.g.
+`{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=signup` (and `type=recovery`
+for reset). The default `{{ .ConfirmationURL }}` points at Supabase's own verify endpoint and
+does NOT hit `/auth/callback`, which caused new signups to land on `/login` still unconfirmed.
+
 **PDF upload security** — validate magic bytes (`%PDF` = `0x25 0x50 0x44 0x46`), not just MIME type. Create two independent `Buffer.from(arrayBuffer.slice(0))` copies before passing to pdf-parse — pdfjs-dist detaches the ArrayBuffer it receives, which corrupts the storage upload.
 
 **Scheduling** — `src/lib/planScheduler.ts` takes `TopicWithTime[]` (each `{ id, minutes }`), `startDateStr`, `examDateStr`, `hoursPerDay`, and a `Map<date, existingMinutes>` of already-scheduled load in minutes. Budgets `hoursPerDay * 60` minutes per day, spreads overflow evenly across days, guarantees at least one topic per day. Works only with `YYYY-MM-DD` strings to avoid timezone issues.
