@@ -118,7 +118,8 @@ export function ChangeEmailForm({ currentEmail }: { currentEmail: string }) {
   );
 }
 
-export function ChangePasswordForm() {
+export function ChangePasswordForm({ currentEmail }: { currentEmail: string }) {
+  const [current, setCurrent] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
@@ -130,16 +131,31 @@ export function ChangePasswordForm() {
     setError(null);
     setSuccess(false);
 
-    if (password.length < 8) { setError("Password must be at least 8 characters"); return; }
+    if (!current) { setError("Enter your current password"); return; }
+    if (password.length < 8) { setError("New password must be at least 8 characters"); return; }
     if (password !== confirm) { setError("Passwords don't match"); return; }
+    if (password === current) { setError("New password must be different"); return; }
 
     setLoading(true);
     const supabase = createClient();
+
+    // Re-authenticate with the current password before allowing a change.
+    const { error: verifyError } = await supabase.auth.signInWithPassword({
+      email: currentEmail,
+      password: current,
+    });
+    if (verifyError) {
+      setLoading(false);
+      setError("Current password is incorrect");
+      return;
+    }
+
     const { error } = await supabase.auth.updateUser({ password });
     setLoading(false);
 
     if (error) { setError(error.message); return; }
     setSuccess(true);
+    setCurrent("");
     setPassword("");
     setConfirm("");
   }
@@ -147,6 +163,14 @@ export function ChangePasswordForm() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-2">
       <label className="text-sm text-slate-700">Change password</label>
+      <input
+        type="password"
+        value={current}
+        onChange={(e) => setCurrent(e.target.value)}
+        placeholder="Current password"
+        autoComplete="current-password"
+        className="px-3 py-2 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
+      />
       <input
         type="password"
         value={password}

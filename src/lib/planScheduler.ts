@@ -5,17 +5,21 @@
 export type TopicWithTime = { id: string; minutes: number };
 export type ScheduledItem = { topic_id: string; date: string };
 
+// Use UTC throughout so results are identical regardless of server timezone.
+// (Building a local Date and formatting with toISOString() shifts the day in
+// any timezone ahead of UTC — e.g. CET turns 2026-01-01 into 2025-12-31.)
 function addDays(dateStr: string, days: number): string {
   const [y, m, d] = dateStr.split("-").map(Number);
-  const dt = new Date(y, m - 1, d + days);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + days);
   return dt.toISOString().split("T")[0];
 }
 
 function daysBetween(a: string, b: string): number {
   const [ay, am, ad] = a.split("-").map(Number);
   const [by, bm, bd] = b.split("-").map(Number);
-  const msA = new Date(ay, am - 1, ad).getTime();
-  const msB = new Date(by, bm - 1, bd).getTime();
+  const msA = Date.UTC(ay, am - 1, ad);
+  const msB = Date.UTC(by, bm - 1, bd);
   return Math.round((msB - msA) / 86400000);
 }
 

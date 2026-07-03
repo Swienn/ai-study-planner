@@ -121,7 +121,7 @@ export default async function AccountPage() {
           </p>
           <div className="flex flex-col gap-5 pt-4 border-t border-slate-100">
             <ChangeEmailForm currentEmail={user.email ?? ""} />
-            <ChangePasswordForm />
+            <ChangePasswordForm currentEmail={user.email ?? ""} />
           </div>
         </section>
 

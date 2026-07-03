@@ -272,8 +272,8 @@ For local webhook testing run `stripe listen --forward-to localhost:3000/api/str
 
 ### Phase 10 — Deploy to Vercel
 - 10.1 ✅ `npm run build` clean; no secrets prefixed `NEXT_PUBLIC_`
-- 10.2 🔲 Unit tests for `planScheduler.ts` — basic scheduling, overflow spreading, blocked days, conflict avoidance
-- 10.3 🔲 GitHub Actions CI — run tests on every push; Vercel deploys only on green
+- 10.2 ✅ Unit tests for `planScheduler.ts` (Vitest) — `src/lib/planScheduler.test.ts`, 12 tests: scheduling, order, budget, overflow spreading, blocked days, conflict avoidance, edge cases. Run with `npm test`. Caught + fixed a UTC/local off-by-one in `addDays`/`daysBetween`.
+- 10.3 ✅ GitHub Actions CI — `.github/workflows/ci.yml` runs lint + tests on every push/PR to main. (To gate Vercel deploys on green, set Vercel → Git → "Only deploy if CI passes" or an Ignored Build Step; see notes below.)
 - 10.4 ✅ Connected GitHub repo to Vercel; all env vars set (Supabase, Anthropic, Stripe sandbox keys, Resend API key)
 - 10.5 ✅ Supabase Site URL + Redirect URLs set to studytool.academy; privacy/terms pages updated; Stripe live mode pending until ready to accept real payments
 - 10.6 ✅ Domain studytool.academy on Namecheap, pointed to Vercel (auto SSL), auto-renew on, contacts verified
