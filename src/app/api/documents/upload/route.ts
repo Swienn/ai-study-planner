@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { anthropic } from "@/lib/anthropic";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { getUserTier, LIMITS } from "@/lib/tier";
+import { logError } from "@/lib/errorLog";
 import { PDFParse } from "pdf-parse";
 import { randomUUID } from "crypto";
 
@@ -196,7 +197,14 @@ ${rawText}
     if (!Array.isArray(topics)) throw new Error("Topics is not an array");
     // Hard cap — regardless of what Claude returns
     topics = topics.slice(0, MAX_TOPICS);
-  } catch {
+  } catch (e) {
+    await logError({
+      source: "server",
+      route: "/api/documents/upload",
+      message: `Topic extraction failed: ${(e as Error).message}`,
+      stack: (e as Error).stack,
+      userId: user.id,
+    });
     return Response.json(
       { error: "Topic extraction failed — please try again" },
       { status: 502 }

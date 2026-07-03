@@ -172,6 +172,8 @@ Migrations already applied:
 - `supabase/migration_profiles.sql` — profiles table + auto-create trigger on auth.users insert
 - `supabase/migration_minutes.sql` — adds `minutes` column to topics
 - `supabase/migration_agenda_blocks.sql` — agenda_blocks table + RLS (Phase 5; backfilled into version control)
+- `supabase/migration_notifications.sql` — notification_preferences JSONB column on profiles (Phase 7)
+- `supabase/migration_error_logs.sql` — error_logs table, RLS-locked to service role (Phase 10.7)
 
 ### Key patterns
 
@@ -293,7 +295,7 @@ For local webhook testing run `stripe listen --forward-to localhost:3000/api/str
 - 10.4 ✅ Connected GitHub repo to Vercel; all env vars set (Supabase, Anthropic, Stripe sandbox keys, Resend API key)
 - 10.5 ✅ Supabase Site URL + Redirect URLs set to studytool.academy; privacy/terms pages updated; Stripe live mode pending until ready to accept real payments
 - 10.6 ✅ Domain studytool.academy on Namecheap, pointed to Vercel (auto SSL), auto-renew on, contacts verified
-- 10.7 🔲 Error logging / observability — capture user-facing errors (client + API route failures) so failures in production are visible; e.g. a lightweight `error_logs` table (or Sentry) recording route, user_id, message, timestamp, plus a global error boundary that reports client errors
+- 10.7 ✅ Error logging / observability — `error_logs` table (`migration_error_logs.sql`, RLS-locked to service role); `src/lib/errorLog.ts` `logError()` helper (never throws); client boundaries `src/app/error.tsx` + `global-error.tsx` POST to `/api/errors`; server routes log via `logError` (e.g. upload extraction failure). View errors in Supabase → Table editor → `error_logs` (newest first).
 
 ### Phase 11 — UI Redesign
 - 11.1 🔲 Coordinate with external contributor on colour system and component structure before any file changes to avoid conflicts
