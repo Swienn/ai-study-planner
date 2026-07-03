@@ -3,7 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getUserTier, LIMITS } from "@/lib/tier";
 import AppLayout from "@/components/AppLayout";
-import { UpgradeButton, ManageSubscriptionButton, ExportDataButton, DeleteAccountButton } from "./AccountActions";
+import { UpgradeButton, ManageSubscriptionButton, ExportDataButton, DeleteAccountButton, ChangeEmailForm, ChangePasswordForm, NotificationPreferences } from "./AccountActions";
 
 const tierLabel: Record<string, string> = {
   free: "Free",
@@ -50,13 +50,20 @@ export default async function AccountPage() {
   const tier = await getUserTier(supabase, user.id);
   const limits = LIMITS[tier];
 
-  const [{ count: courseCount }, { count: planCount }] = await Promise.all([
+  const [{ count: courseCount }, { count: planCount }, { data: profile }] = await Promise.all([
     supabase.from("courses").select("id", { count: "exact", head: true }).eq("user_id", user.id),
     supabase.from("plans").select("id", { count: "exact", head: true }).eq("user_id", user.id),
+    supabase.from("profiles").select("notification_preferences").eq("user_id", user.id).single(),
   ]);
 
   const courses = courseCount ?? 0;
   const plans = planCount ?? 0;
+
+  const prefs = (profile?.notification_preferences ?? {}) as { daily_reminder?: boolean; exam_countdown?: boolean };
+  const notifPrefs = {
+    daily_reminder: prefs.daily_reminder ?? true,
+    exam_countdown: prefs.exam_countdown ?? true,
+  };
 
   return (
     <AppLayout>
@@ -109,9 +116,22 @@ export default async function AccountPage() {
         {/* Account info */}
         <section className="p-5 border border-slate-200 rounded-xl bg-white">
           <h2 className="text-base font-semibold text-slate-800 mb-3">Account info</h2>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-slate-500 mb-5">
             Signed in as <span className="font-medium text-slate-700">{user.email}</span>
           </p>
+          <div className="flex flex-col gap-5 pt-4 border-t border-slate-100">
+            <ChangeEmailForm currentEmail={user.email ?? ""} />
+            <ChangePasswordForm />
+          </div>
+        </section>
+
+        {/* Notifications */}
+        <section className="p-5 border border-slate-200 rounded-xl bg-white">
+          <h2 className="text-base font-semibold text-slate-800 mb-1">Email notifications</h2>
+          <p className="text-xs text-slate-400 mb-4">
+            Choose which reminder emails you'd like to receive.
+          </p>
+          <NotificationPreferences initial={notifPrefs} />
         </section>
 
         {/* GDPR / Data */}

@@ -2,6 +2,179 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+
+type NotifPrefs = { daily_reminder: boolean; exam_countdown: boolean };
+
+export function NotificationPreferences({ initial }: { initial: NotifPrefs }) {
+  const [prefs, setPrefs] = useState<NotifPrefs>(initial);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  async function update(next: NotifPrefs) {
+    const prev = prefs;
+    setPrefs(next);
+    setSaving(true);
+    setError(null);
+    setSaved(false);
+    try {
+      const res = await fetch("/api/account/notifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(next),
+      });
+      if (!res.ok) {
+        setPrefs(prev); // roll back on failure
+        setError("Couldn't save — try again");
+      } else {
+        setSaved(true);
+      }
+    } catch {
+      setPrefs(prev);
+      setError("Network error — try again");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const rows: { key: keyof NotifPrefs; label: string; hint: string }[] = [
+    { key: "daily_reminder", label: "Daily study reminder", hint: "A morning email listing today's topics" },
+    { key: "exam_countdown", label: "Exam countdown", hint: "A heads-up 3 days before each exam" },
+  ];
+
+  return (
+    <div className="flex flex-col gap-3">
+      {rows.map((row) => (
+        <label key={row.key} className="flex items-start justify-between gap-3 cursor-pointer">
+          <span className="flex flex-col">
+            <span className="text-sm text-slate-700">{row.label}</span>
+            <span className="text-xs text-slate-400">{row.hint}</span>
+          </span>
+          <input
+            type="checkbox"
+            checked={prefs[row.key]}
+            disabled={saving}
+            onChange={(e) => update({ ...prefs, [row.key]: e.target.checked })}
+            className="mt-0.5 h-4 w-4 accent-indigo-600 shrink-0"
+          />
+        </label>
+      ))}
+      {error && <p className="text-xs text-red-600">{error}</p>}
+      {saved && !error && <p className="text-xs text-green-600">Saved.</p>}
+    </div>
+  );
+}
+
+export function ChangeEmailForm({ currentEmail }: { currentEmail: string }) {
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSuccess(false);
+
+    const next = email.trim();
+    if (!next) { setError("Enter a new email address"); return; }
+    if (next === currentEmail) { setError("That's already your email"); return; }
+
+    setLoading(true);
+    const supabase = createClient();
+    const { error } = await supabase.auth.updateUser({ email: next });
+    setLoading(false);
+
+    if (error) { setError(error.message); return; }
+    setSuccess(true);
+    setEmail("");
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+      <label className="text-sm text-slate-700">Change email</label>
+      <input
+        type="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="new@email.com"
+        className="px-3 py-2 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
+      />
+      <button
+        type="submit"
+        disabled={loading}
+        className="self-start px-4 py-2 border border-slate-200 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors disabled:opacity-50"
+      >
+        {loading ? "Saving…" : "Update email"}
+      </button>
+      {error && <p className="text-xs text-red-600">{error}</p>}
+      {success && (
+        <p className="text-xs text-green-600">
+          Confirmation sent — check your new inbox to finish the change.
+        </p>
+      )}
+    </form>
+  );
+}
+
+export function ChangePasswordForm() {
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSuccess(false);
+
+    if (password.length < 8) { setError("Password must be at least 8 characters"); return; }
+    if (password !== confirm) { setError("Passwords don't match"); return; }
+
+    setLoading(true);
+    const supabase = createClient();
+    const { error } = await supabase.auth.updateUser({ password });
+    setLoading(false);
+
+    if (error) { setError(error.message); return; }
+    setSuccess(true);
+    setPassword("");
+    setConfirm("");
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+      <label className="text-sm text-slate-700">Change password</label>
+      <input
+        type="password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        placeholder="New password"
+        autoComplete="new-password"
+        className="px-3 py-2 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
+      />
+      <input
+        type="password"
+        value={confirm}
+        onChange={(e) => setConfirm(e.target.value)}
+        placeholder="Confirm new password"
+        autoComplete="new-password"
+        className="px-3 py-2 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
+      />
+      <button
+        type="submit"
+        disabled={loading}
+        className="self-start px-4 py-2 border border-slate-200 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors disabled:opacity-50"
+      >
+        {loading ? "Saving…" : "Update password"}
+      </button>
+      {error && <p className="text-xs text-red-600">{error}</p>}
+      {success && <p className="text-xs text-green-600">Password updated.</p>}
+    </form>
+  );
+}
 
 export function UpgradeButton() {
   const [loading, setLoading] = useState(false);

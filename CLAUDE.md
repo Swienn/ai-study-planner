@@ -160,8 +160,12 @@ All tables have RLS — users can only access their own rows. `profiles` has SEL
 `course_id` is nullable on `documents` and `plans` for backwards compatibility with pre-course uploads.
 
 Migrations already applied:
+- `supabase/schema.sql` — base tables (documents, topics, plans, plan_documents, plan_items) + RLS
+- `supabase/storage.sql` — storage bucket + policies for uploaded PDFs
+- `supabase/migration_courses.sql` — courses table + nullable `course_id` on documents/plans
 - `supabase/migration_profiles.sql` — profiles table + auto-create trigger on auth.users insert
 - `supabase/migration_minutes.sql` — adds `minutes` column to topics
+- `supabase/migration_agenda_blocks.sql` — agenda_blocks table + RLS (Phase 5; backfilled into version control)
 
 ### Key patterns
 
@@ -201,10 +205,13 @@ STRIPE_SECRET_KEY             # sk_test_... for dev, sk_live_... for prod
 STRIPE_WEBHOOK_SECRET         # whsec_... from Stripe CLI or dashboard
 STRIPE_PRICE_ID               # price_... for the Premium subscription product
 NEXT_PUBLIC_SITE_URL          # http://localhost:3000 in dev, production URL in prod
-RESEND_API_KEY                # for transactional emails (notification/reminder emails phase 7)
+RESEND_API_KEY                # for transactional emails (reminder/countdown emails, Phase 7)
+CRON_SECRET                   # random secret; Vercel Cron sends it as `Authorization: Bearer <CRON_SECRET>` to /api/cron/reminders
 ```
 
 For local webhook testing run `stripe listen --forward-to localhost:3000/api/stripe/webhook` (requires `stripe login` first).
+
+**Cron / reminder emails** — `vercel.json` schedules `GET /api/cron/reminders` daily at 06:00 UTC (≈07–08 CET). The route uses the service-role client to scan all users' plans, sending a daily reminder (today's pending topics) and an exam countdown (3 days before an exam). It respects `profiles.notification_preferences` and is gated on the `CRON_SECRET` header. Vercel Cron only fires in production. To test locally: `curl -H "Authorization: Bearer <CRON_SECRET>" http://localhost:3000/api/cron/reminders`.
 
 ## Build roadmap
 
@@ -212,7 +219,7 @@ For local webhook testing run `stripe listen --forward-to localhost:3000/api/str
 
 ### Phase 1 — Email & Auth
 - 1.1 ✅ Custom email sending via Resend — domain verified (studytool.academy, eu-west-1), Supabase SMTP configured (smtp.resend.com:465), confirmation + password-reset templates customized
-- 1.2 🔲 Account settings — change email and password fields on `/account`
+- 1.2 ✅ Account settings — change email and password fields on `/account` (client forms in `AccountActions.tsx` using `supabase.auth.updateUser`; email change triggers re-confirmation)
 - 1.3 ✅ Password reset flow — "Forgot password?" link on login → `/forgot-password` → email → `/reset-password`; `auth/callback` detects `type=recovery` and redirects correctly
 - 1.4 ✅ Email verification gate — `proxy.ts` checks `user.email_confirmed_at`, redirects unverified users to `/verify-email`; resend button calls `supabase.auth.resend()`
 - 1.5 ✅ Google OAuth — Google Cloud OAuth client created, credentials added to Supabase → Authentication → Providers → Google; button on login + signup pages
@@ -237,19 +244,19 @@ For local webhook testing run `stripe listen --forward-to localhost:3000/api/str
 - 4.2 ✅ First-time `/onboarding` wizard — 3 steps: create course → upload PDF (skippable) → create plan (skippable); redirects to /calendar on completion; server component skips wizard if user already has courses
 
 ### Phase 5 — Agenda / Blocked Days
-- 5.1 🔲 `agenda_blocks` table — `id, user_id, date, title, created_at` with RLS
-- 5.2 🔲 Calendar UI — click an empty day cell to add/remove a personal block; shown in a distinct neutral colour
-- 5.3 🔲 Scheduler integration — fetch blocks between start/exam date, treat blocked days as fully unavailable
+- 5.1 ✅ `agenda_blocks` table — `id, user_id, date, title, created_at` with RLS; migration in `supabase/migration_agenda_blocks.sql`
+- 5.2 ✅ Calendar UI — click an empty day cell to add/remove a personal block; shown in a distinct neutral colour
+- 5.3 ✅ Scheduler integration — fetch blocks between start/exam date, treat blocked days as fully unavailable
 
 ### Phase 6 — Rescheduling
-- 6.1 🔲 Highlight past days in plan view that still have pending topics
-- 6.2 🔲 "Reschedule remaining" button — redistributes all pending topics from today forward, respecting agenda blocks and other plans
-- 6.3 🔲 Single-topic reschedule — move one topic to tomorrow or next available slot
+- 6.1 ✅ Highlight past days in plan view that still have pending topics; overdue banner on calendar + day view
+- 6.2 ✅ "Reschedule remaining" button — redistributes all pending topics from today forward, respecting agenda blocks and other plans (`POST /api/plans/[id]/reschedule`); "reschedule all" on calendar
+- 6.3 ✅ Single-topic reschedule — move one topic to next available slot (`POST /api/plan-items/[id]/reschedule`)
 
 ### Phase 7 — Notifications & Reminders
-- 7.1 🔲 `notification_preferences` column on `profiles` — opt-in/out per notification type
-- 7.2 🔲 Daily reminder email via Resend + Vercel cron — "You have X topics today for [Course]"
-- 7.3 🔲 Exam countdown email — sent 3 days before exam date: "Your exam is in 3 days — here's what's left"
+- 7.1 ✅ `notification_preferences` JSONB column on `profiles` (`migration_notifications.sql`); toggled on `/account` via `PATCH /api/account/notifications` (service-role, only touches that column)
+- 7.2 ✅ Daily reminder email via Resend + Vercel cron — `GET /api/cron/reminders` (daily 06:00 UTC in `vercel.json`); groups today's pending topics per plan; templates in `src/lib/emails.ts`, send helper `src/lib/resend.ts`
+- 7.3 ✅ Exam countdown email — same cron sends 3 days before exam date with remaining topic count; skips plans with nothing left
 
 ### Phase 8 — Study Experience
 - 8.1 🔲 Topic chat — "Ask Claude" button per topic; `POST /api/topics/[id]/chat`; `chat_messages(id, topic_id, user_id, role, content, created_at)` table; streaming response
@@ -270,7 +277,11 @@ For local webhook testing run `stripe listen --forward-to localhost:3000/api/str
 - 10.4 ✅ Connected GitHub repo to Vercel; all env vars set (Supabase, Anthropic, Stripe sandbox keys, Resend API key)
 - 10.5 ✅ Supabase Site URL + Redirect URLs set to studytool.academy; privacy/terms pages updated; Stripe live mode pending until ready to accept real payments
 - 10.6 ✅ Domain studytool.academy on Namecheap, pointed to Vercel (auto SSL), auto-renew on, contacts verified
+- 10.7 🔲 Error logging / observability — capture user-facing errors (client + API route failures) so failures in production are visible; e.g. a lightweight `error_logs` table (or Sentry) recording route, user_id, message, timestamp, plus a global error boundary that reports client errors
 
 ### Phase 11 — UI Redesign
 - 11.1 🔲 Coordinate with external contributor on colour system and component structure before any file changes to avoid conflicts
 - 11.2 🔲 Implement new design — replace current indigo/slate palette and card layouts; keep logic components untouched
+
+### Phase 12 — User Tutorial / Walkthrough
+- 12.1 🔲 In-app "how to use StudyTool" tutorial — guided walkthrough of the full flow (create course → upload PDF → generate plan → study day-by-day → calendar). **Do this AFTER Phase 11 (UI redesign)** so it matches the final UI and doesn't need redoing.
