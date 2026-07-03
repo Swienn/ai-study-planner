@@ -7,6 +7,28 @@ import { logError } from "@/lib/errorLog";
 export const runtime = "nodejs";
 
 type RawQuestion = { question: string; options: string[]; correct_index: number };
+type QuizQuestion = { id: string; question: string; options: string[]; correct_index: number };
+
+// Randomize option order per question (recomputing correct_index) so the answer
+// isn't stuck at a fixed position — Claude has a strong position bias when
+// generating multiple-choice options. Applied on every read, so it also fixes
+// quizzes that were cached before this shuffle existed.
+function shuffled(questions: QuizQuestion[]): QuizQuestion[] {
+  return questions.map((q) => {
+    const options = Array.isArray(q.options) ? q.options : [];
+    const order = options.map((_, i) => i);
+    for (let k = order.length - 1; k > 0; k--) {
+      const j = Math.floor(Math.random() * (k + 1));
+      [order[k], order[j]] = [order[j], order[k]];
+    }
+    const newCorrect = order.indexOf(q.correct_index);
+    return {
+      ...q,
+      options: order.map((k) => options[k]),
+      correct_index: newCorrect === -1 ? q.correct_index : newCorrect,
+    };
+  });
+}
 
 // Load cached quiz questions (options only — the client submits answers to be
 // scored so the correct index isn't exposed up front).
@@ -26,7 +48,7 @@ export async function GET(
     .eq("user_id", user.id)
     .order("position");
 
-  return Response.json({ questions: data ?? [] });
+  return Response.json({ questions: shuffled((data ?? []) as unknown as QuizQuestion[]) });
 }
 
 // Generate (and cache) a quiz for a topic. Paid tiers only.
@@ -50,7 +72,7 @@ export async function POST(
     .eq("user_id", user.id)
     .order("position");
   if (existing && existing.length > 0) {
-    return Response.json({ questions: existing });
+    return Response.json({ questions: shuffled(existing as unknown as QuizQuestion[]) });
   }
 
   const allowed = await checkRateLimit(supabase, user.id, "quiz_questions", 20, 60_000);
@@ -114,5 +136,5 @@ Exactly 4 options each. Make distractors plausible.`,
     .insert(rows)
     .select("id, question, options, correct_index");
 
-  return Response.json({ questions: inserted ?? [] });
+  return Response.json({ questions: shuffled((inserted ?? []) as unknown as QuizQuestion[]) });
 }

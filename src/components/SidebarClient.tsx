@@ -14,11 +14,6 @@ const colorDot: Record<string, string> = {
   purple: "bg-purple-500",
 };
 
-const todayStr =
-  typeof window !== "undefined"
-    ? new Date().toISOString().split("T")[0]
-    : "";
-
 function formatSidebarDate(dateStr: string) {
   return new Date(dateStr + "T00:00:00").toLocaleDateString("en-GB", {
     weekday: "short",
@@ -31,10 +26,12 @@ export default function SidebarClient({
   courses,
   activePlanId,
   activeDate,
+  today,
 }: {
   courses: SidebarCourse[];
   activePlanId?: string;
   activeDate?: string;
+  today: string;
 }) {
   const pathname = usePathname();
 
@@ -138,7 +135,7 @@ export default function SidebarClient({
                   <div className="ml-5 pl-3 border-l-2 border-slate-100 mt-0.5 mb-1 flex flex-col gap-0.5">
                     {course.plan.dates.map((date) => {
                       const isActive = isActivePlan && activeDate === date;
-                      const isToday = date === todayStr;
+                      const isToday = date === today;
                       return (
                         <Link
                           key={date}

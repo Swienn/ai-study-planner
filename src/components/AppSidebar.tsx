@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import SidebarClient from "./SidebarClient";
+import { todayStr } from "@/lib/analytics";
 
 export type SidebarCourse = {
   id: string;
@@ -78,6 +79,7 @@ export default async function AppSidebar({
           courses={sidebarCourses}
           activePlanId={activePlanId}
           activeDate={activeDate}
+          today={todayStr()}
         />
       </div>
       <div className="p-3 border-t border-slate-200 flex flex-col gap-1">
