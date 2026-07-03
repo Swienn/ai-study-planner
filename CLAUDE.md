@@ -237,7 +237,7 @@ CRON_SECRET                   # random secret; Vercel Cron sends it as `Authoriz
 For local webhook testing run `stripe listen --forward-to localhost:3000/api/stripe/webhook` (requires `stripe login` first).
 
 **Stripe go-live checklist** — the code is fully env-driven, so switching from test/sandbox to live is *config only, no code changes*:
-1. **Activate** the Stripe account for live payments (business + bank details). This can require identity/bank verification and is the long pole.
+1. **Activate** the Stripe account for live payments (business + bank details). ⏳ **BLOCKED / TODO (Sven):** requires a **KvK number** (Dutch Chamber of Commerce registration) before Stripe can be activated for live payments in NL. Register the business first, then continue. This is the long pole.
 2. Toggle the dashboard to **Live mode**, then create the Premium **product + €8/month recurring price** (products/prices do NOT carry over from test mode) → copy the live `price_...` ID.
 3. Developers → API keys (Live) → copy `sk_live_...`.
 4. Developers → **Webhooks → Add endpoint**: `https://studytool.academy/api/stripe/webhook`; subscribe to exactly these events the handler uses: `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted` → copy the live signing secret `whsec_...`.
@@ -293,7 +293,8 @@ For local webhook testing run `stripe listen --forward-to localhost:3000/api/str
 - 7.3 ✅ Exam countdown email — same cron sends 3 days before exam date with remaining topic count; skips plans with nothing left
 
 ### Phase 8 — Study Experience
-- 8.1 ✅ Topic chat — "Ask Claude" toggle per topic in day view (`TopicChat.tsx`); `GET`/`POST /api/topics/[id]/chat`; `chat_messages` table; Haiku, grounded on topic + document text; non-streaming for reliability (streaming is a future enhancement)
+- 8.1 ✅ Topic chat — "Ask Claude" toggle per topic in day view (`TopicChat.tsx`); `GET`/`POST /api/topics/[id]/chat`; `chat_messages` table; Haiku, grounded on topic + document text; non-streaming for reliability. Responses render as Markdown (`components/Markdown.tsx`, react-markdown — no raw HTML, XSS-safe). System prompt is jailbreak-hardened: stays on the study topic, refuses off-topic/role-change requests, and treats the uploaded document text as untrusted (ignores injected instructions).
+- 8.5 ✅ Per-topic study summary — "Summary" tool per topic (`TopicSummary.tsx`, `GET`/`POST /api/topics/[id]/summary`), free tier. A focused study write-up cached in `topics.study_guide` (shared with exam mode). Rendered as Markdown.
 - 8.2 ✅ Exam mode — `/plans/[id]/exam-mode` page: condensed bullet revision notes per topic, generated in one Haiku call and cached in `topics.study_guide` (`POST /api/plans/[id]/exam-mode`). Linked from plan header when exam ≤3 days away
 - 8.3 ✅ Progress analytics — `PlanStats` tiles on plan page: completion %, hours left, days to exam, study streak. Pure helpers in `src/lib/analytics.ts` (unit-tested); streak uses new `plan_items.completed_at` (stamped by the PATCH route)
 - 8.4 ✅ Exam countdown badge — days-until-exam badge on plan header (red when ≤3 days); also surfaced in `PlanStats`
@@ -309,7 +310,7 @@ For local webhook testing run `stripe listen --forward-to localhost:3000/api/str
 - 10.2 ✅ Unit tests for `planScheduler.ts` (Vitest) — `src/lib/planScheduler.test.ts`, 12 tests: scheduling, order, budget, overflow spreading, blocked days, conflict avoidance, edge cases. Run with `npm test`. Caught + fixed a UTC/local off-by-one in `addDays`/`daysBetween`.
 - 10.3 ✅ GitHub Actions CI — `.github/workflows/ci.yml` runs lint + tests on every push/PR to main. (To gate Vercel deploys on green, set Vercel → Git → "Only deploy if CI passes" or an Ignored Build Step; see notes below.)
 - 10.4 ✅ Connected GitHub repo to Vercel; all env vars set (Supabase, Anthropic, Stripe sandbox keys, Resend API key)
-- 10.5 ◻ Supabase Site URL + Redirect URLs set to studytool.academy ✅; privacy/terms pages updated ✅; **Stripe live mode** still pending — see the "Stripe go-live checklist" above (config only, no code changes)
+- 10.5 ◻ Supabase Site URL + Redirect URLs set to studytool.academy ✅; privacy/terms pages updated ✅; **Stripe live mode** still pending — see the "Stripe go-live checklist" above (config only, no code changes). **⏳ Blocked on obtaining a KvK number (Dutch CoC registration) before Stripe live activation — Sven TODO.**
 - 10.6 ✅ Domain studytool.academy on Namecheap, pointed to Vercel (auto SSL), auto-renew on, contacts verified
 - 10.7 ✅ Error logging / observability — `error_logs` table (`migration_error_logs.sql`, RLS-locked to service role); `src/lib/errorLog.ts` `logError()` helper (never throws); client boundaries `src/app/error.tsx` + `global-error.tsx` POST to `/api/errors`; server routes log via `logError` (e.g. upload extraction failure). View errors in Supabase → Table editor → `error_logs` (newest first).
 

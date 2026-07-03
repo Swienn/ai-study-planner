@@ -64,7 +64,7 @@ export async function POST(
           role: "user",
           content: `You are helping a student revise the night before an exam. For each topic below, write 3-5 concise, high-yield revision bullet points capturing the most important things to remember.
 
-Return ONLY a valid JSON array — no markdown, no code fences. Each element: { "id": "<topic id>", "guide": "<bullet points as a single string, each bullet on its own line starting with '• '>" }.
+Return ONLY a valid JSON array — no code fences around the array. Each element: { "id": "<topic id>", "guide": "<3-5 revision bullet points as a single Markdown string, each on its own line starting with '- '; use **bold** for key terms>" }.
 
 Topics:
 ${JSON.stringify(missing.map((t) => ({ id: t.id, title: t.title, summary: t.summary })))}`,

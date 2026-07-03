@@ -3,10 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import TopicChat from "./TopicChat";
+import TopicSummary from "./TopicSummary";
 import FlashcardDeck from "./FlashcardDeck";
 import Quiz from "./Quiz";
 
-type Panel = "chat" | "flashcards" | "quiz" | null;
+type Panel = "summary" | "chat" | "flashcards" | "quiz" | null;
 
 function ToolButton({
   active,
@@ -46,6 +47,12 @@ export default function TopicStudyTools({ topicId, isPaid }: { topicId: string; 
   return (
     <div className="mt-1.5 pl-8">
       <div className="flex items-center gap-1 flex-wrap">
+        <ToolButton active={panel === "summary"} onClick={() => toggle("summary")}>
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          Summary
+        </ToolButton>
         <ToolButton active={panel === "chat"} onClick={() => toggle("chat")}>
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.86 9.86 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -59,6 +66,8 @@ export default function TopicStudyTools({ topicId, isPaid }: { topicId: string; 
           Quiz
         </ToolButton>
       </div>
+
+      {panel === "summary" && <TopicSummary topicId={topicId} />}
 
       {panel === "chat" && <TopicChat topicId={topicId} />}
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Markdown from "@/components/Markdown";
 
 type Topic = { id: string; title: string; summary: string; study_guide: string | null };
 
@@ -63,7 +64,9 @@ export default function ExamModeClient({
         <div key={t.id} className="p-5 border border-slate-200 rounded-xl bg-white">
           <h2 className="text-base font-semibold text-slate-900 mb-2">{t.title}</h2>
           {t.study_guide ? (
-            <div className="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed">{t.study_guide}</div>
+            <div className="text-slate-600">
+              <Markdown>{t.study_guide}</Markdown>
+            </div>
           ) : (
             <p className="text-sm text-slate-400 italic">{t.summary}</p>
           )}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Markdown from "@/components/Markdown";
 
 type Message = { role: "user" | "assistant"; content: string };
 
@@ -69,18 +70,23 @@ export default function TopicChat({ topicId }: { topicId: string }) {
             Ask Claude anything about this topic — explanations, examples, or practice questions.
           </p>
         )}
-        {messages.map((m, i) => (
-          <div
-            key={i}
-            className={`text-sm rounded-xl px-3 py-2 max-w-[85%] whitespace-pre-wrap ${
-              m.role === "user"
-                ? "bg-indigo-600 text-white self-end"
-                : "bg-white border border-slate-200 text-slate-700 self-start"
-            }`}
-          >
-            {m.content}
-          </div>
-        ))}
+        {messages.map((m, i) =>
+          m.role === "user" ? (
+            <div
+              key={i}
+              className="text-sm rounded-xl px-3 py-2 max-w-[85%] whitespace-pre-wrap bg-indigo-600 text-white self-end"
+            >
+              {m.content}
+            </div>
+          ) : (
+            <div
+              key={i}
+              className="rounded-xl px-3 py-2 max-w-[85%] bg-white border border-slate-200 text-slate-700 self-start"
+            >
+              <Markdown>{m.content}</Markdown>
+            </div>
+          )
+        )}
         {loading && (
           <div className="text-sm rounded-xl px-3 py-2 bg-white border border-slate-200 text-slate-400 self-start">
             Thinking…
