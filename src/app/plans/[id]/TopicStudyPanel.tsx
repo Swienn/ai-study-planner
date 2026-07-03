@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import TopicSummary from "./TopicSummary";
-import TopicChat from "./TopicChat";
+import ChatBox from "@/components/ChatBox";
 import FlashcardDeck from "./FlashcardDeck";
 import Quiz from "./Quiz";
 
@@ -58,7 +58,7 @@ export default function TopicStudyPanel({ topic, isPaid }: { topic: PanelTopic; 
 
       <div key={topic.id + tab}>
         {tab === "summary" && <TopicSummary topicId={topic.id} />}
-        {tab === "chat" && (isPaid ? <TopicChat topicId={topic.id} /> : <UpgradePrompt feature="Ask Claude" />)}
+        {tab === "chat" && (isPaid ? <ChatBox endpoint={`/api/topics/${topic.id}/chat`} /> : <UpgradePrompt feature="Ask Claude" />)}
         {tab === "flashcards" && (isPaid ? <FlashcardDeck topicId={topic.id} /> : <UpgradePrompt feature="Flashcards" />)}
         {tab === "quiz" && (isPaid ? <Quiz topicId={topic.id} /> : <UpgradePrompt feature="Quizzes" />)}
       </div>

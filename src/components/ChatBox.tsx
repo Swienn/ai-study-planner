@@ -5,7 +5,19 @@ import Markdown from "@/components/Markdown";
 
 type Message = { role: "user" | "assistant"; content: string };
 
-export default function TopicChat({ topicId }: { topicId: string }) {
+/**
+ * Reusable "Ask Claude" chat. `endpoint` handles GET (history) and POST
+ * ({ message } → { reply }). Used for both per-topic and per-course chat.
+ */
+export default function ChatBox({
+  endpoint,
+  placeholder = "Ask a question…",
+  intro = "Ask Claude anything about this — explanations, examples, or practice questions.",
+}: {
+  endpoint: string;
+  placeholder?: string;
+  intro?: string;
+}) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -15,7 +27,7 @@ export default function TopicChat({ topicId }: { topicId: string }) {
 
   useEffect(() => {
     let active = true;
-    fetch(`/api/topics/${topicId}/chat`)
+    fetch(endpoint)
       .then((r) => (r.ok ? r.json() : { messages: [] }))
       .then((data) => {
         if (active && Array.isArray(data.messages)) {
@@ -27,7 +39,7 @@ export default function TopicChat({ topicId }: { topicId: string }) {
     return () => {
       active = false;
     };
-  }, [topicId]);
+  }, [endpoint]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
@@ -44,17 +56,14 @@ export default function TopicChat({ topicId }: { topicId: string }) {
     setLoading(true);
 
     try {
-      const res = await fetch(`/api/topics/${topicId}/chat`, {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: text }),
       });
       const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Something went wrong");
-      } else {
-        setMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
-      }
+      if (!res.ok) setError(data.error ?? "Something went wrong");
+      else setMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
     } catch {
       setError("Network error — please try again");
     } finally {
@@ -63,48 +72,46 @@ export default function TopicChat({ topicId }: { topicId: string }) {
   }
 
   return (
-    <div className="mt-2 border border-slate-200 rounded-xl bg-slate-50 p-3">
-      <div ref={scrollRef} className="max-h-64 overflow-y-auto flex flex-col gap-2 mb-2">
+    <div className="mt-2 rounded-xl border border-border bg-slate-50 p-3">
+      <div ref={scrollRef} className="mb-2 flex max-h-72 flex-col gap-2 overflow-y-auto">
         {loadedHistory && messages.length === 0 && (
-          <p className="text-xs text-slate-400 text-center py-3">
-            Ask Claude anything about this topic — explanations, examples, or practice questions.
-          </p>
+          <p className="py-3 text-center text-xs text-slate-400">{intro}</p>
         )}
         {messages.map((m, i) =>
           m.role === "user" ? (
             <div
               key={i}
-              className="text-sm rounded-xl px-3 py-2 max-w-[85%] whitespace-pre-wrap bg-indigo-600 text-white self-end"
+              className="max-w-[85%] self-end whitespace-pre-wrap rounded-xl bg-primary px-3 py-2 text-sm text-primary-foreground"
             >
               {m.content}
             </div>
           ) : (
             <div
               key={i}
-              className="rounded-xl px-3 py-2 max-w-[85%] bg-white border border-slate-200 text-slate-700 self-start"
+              className="max-w-[85%] self-start rounded-xl border border-border bg-background px-3 py-2 text-slate-700"
             >
               <Markdown>{m.content}</Markdown>
             </div>
           )
         )}
         {loading && (
-          <div className="text-sm rounded-xl px-3 py-2 bg-white border border-slate-200 text-slate-400 self-start">
+          <div className="max-w-[85%] self-start rounded-xl border border-border bg-background px-3 py-2 text-sm text-slate-400">
             Thinking…
           </div>
         )}
       </div>
-      {error && <p className="text-xs text-red-600 mb-2">{error}</p>}
+      {error && <p className="mb-2 text-xs text-destructive">{error}</p>}
       <form onSubmit={send} className="flex gap-2">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask a question…"
-          className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 bg-white"
+          placeholder={placeholder}
+          className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
         />
         <button
           type="submit"
           disabled={loading || !input.trim()}
-          className="px-3 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50"
+          className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
         >
           Send
         </button>

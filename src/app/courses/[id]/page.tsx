@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 import AppLayout from "@/components/AppLayout";
+import CourseChat from "@/components/CourseChat";
+import { getUserTier } from "@/lib/tier";
 import CourseUploadWidget from "./CourseUploadWidget";
 import CoursePlanCreator from "./CoursePlanCreator";
 import DeleteCourseButton from "./DeleteCourseButton";
@@ -67,10 +69,12 @@ export default async function CoursePage({
   const totalTopics = docs.reduce((sum, d) => sum + d.topic_count, 0);
   const dot = colorDot[course.color] ?? "bg-blue-500";
   const headerBg = colorBorder[course.color] ?? colorBorder.blue;
+  const tier = await getUserTier(supabase, user.id);
+  const isPaid = tier !== "free";
 
   return (
     <AppLayout>
-      <div className="p-6 max-w-2xl">
+      <div className="p-6 pb-16 max-w-6xl">
         {/* Breadcrumb */}
         <Link href="/dashboard" className="text-sm text-slate-400 hover:text-slate-700 transition-colors mb-4 inline-block">
           ← Manage courses
@@ -85,6 +89,8 @@ export default async function CoursePage({
           <DeleteCourseButton courseId={course.id} />
         </div>
 
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(340px,400px)] gap-8 items-start">
+        <div>
         {/* Study plan */}
         <section className="mb-10">
           <h2 className="text-lg font-semibold text-slate-800 mb-3">Study plan</h2>
@@ -148,6 +154,13 @@ export default async function CoursePage({
 
           <CourseUploadWidget courseId={course.id} />
         </section>
+        </div>
+
+        {/* Right: course tutor */}
+        <div className="lg:sticky lg:top-6">
+          <CourseChat courseId={course.id} isPaid={isPaid} />
+        </div>
+        </div>
       </div>
     </AppLayout>
   );
