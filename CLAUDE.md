@@ -161,6 +161,8 @@ plan_documents plan_id, document_id
 plan_items    id, plan_id, topic_id, date, status(pending/completed/skipped), completed_at(nullable)
 agenda_blocks id, user_id, date, title
 chat_messages id, topic_id, user_id, role(user/assistant), content, created_at
+flashcards    id, topic_id, user_id, front, back, position
+quiz_questions id, topic_id, user_id, question, options(jsonb), correct_index, position
 error_logs    id, user_id(nullable), source(client/server), route, message, stack, created_at
 ```
 
@@ -178,6 +180,7 @@ Migrations already applied:
 - `supabase/migration_notifications.sql` — notification_preferences JSONB column on profiles (Phase 7)
 - `supabase/migration_error_logs.sql` — error_logs table, RLS-locked to service role (Phase 10.7)
 - `supabase/migration_study_experience.sql` — plan_items.completed_at, topics.study_guide, chat_messages table (Phase 8)
+- `supabase/migration_flashcards_quizzes.sql` — flashcards + quiz_questions tables, RLS per-user (Phase 9)
 
 ### Key patterns
 
@@ -287,10 +290,10 @@ For local webhook testing run `stripe listen --forward-to localhost:3000/api/str
 - 8.4 ✅ Exam countdown badge — days-until-exam badge on plan header (red when ≤3 days); also surfaced in `PlanStats`
 
 ### Phase 9 — Flashcards & Quizzes (paid only)
-- 9.1 🔲 `flashcards(id, topic_id, user_id, front, back)` and `quiz_questions(id, topic_id, user_id, question, options json, correct_index)` tables
-- 9.2 🔲 Claude Haiku generates 5-10 flashcards + 5 quiz questions per topic on demand; results cached in DB; `POST /api/topics/[id]/flashcards` and `/quiz`
-- 9.3 🔲 Day view — "Flashcards" and "Quiz" tab per course section; flip-card UI; scored quiz with results summary
-- 9.4 🔲 Free users see locked buttons with upgrade prompt
+- 9.1 ✅ `flashcards(id, topic_id, user_id, front, back, position)` and `quiz_questions(id, topic_id, user_id, question, options jsonb, correct_index, position)` tables (`migration_flashcards_quizzes.sql`, RLS per-user)
+- 9.2 ✅ Haiku generates 6-8 flashcards + 5 quiz questions per topic on demand, cached in DB; `GET`/`POST /api/topics/[id]/flashcards` and `/quiz` (POST returns cached set if it exists; paid-gated via `requirePaidTopicAccess` in `src/lib/studyTools.ts`)
+- 9.3 ✅ Day view — Flashcards (flip-card `FlashcardDeck.tsx`) and Quiz (scored `Quiz.tsx`) alongside Ask Claude, in `TopicStudyTools.tsx`
+- 9.4 ✅ Free users see locked buttons (🔒) → in-panel upgrade prompt linking to `/account`; API also returns 403 for free tier
 
 ### Phase 10 — Deploy to Vercel
 - 10.1 ✅ `npm run build` clean; no secrets prefixed `NEXT_PUBLIC_`

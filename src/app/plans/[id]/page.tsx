@@ -5,6 +5,7 @@ import AppLayout from "@/components/AppLayout";
 import PlanView from "./PlanView";
 import PlanStats from "./PlanStats";
 import { daysUntil, computeStreak, todayStr } from "@/lib/analytics";
+import { getUserTier } from "@/lib/tier";
 
 export const dynamic = "force-dynamic";
 import DeletePlanButton from "./DeletePlanButton";
@@ -105,6 +106,9 @@ export default async function PlanPage({
     .filter((d): d is string => d !== null);
   const streak = computeStreak(completedDates);
 
+  const tier = await getUserTier(supabase, user.id);
+  const isPaid = tier !== "free";
+
   return (
     <AppLayout activePlanId={id} activeDate={activeDate}>
       <div className="p-6 max-w-2xl">
@@ -170,6 +174,7 @@ export default async function PlanPage({
           documents={documents ?? []}
           initialDate={activeDate ?? null}
           planId={id}
+          isPaid={isPaid}
         />
       </div>
     </AppLayout>

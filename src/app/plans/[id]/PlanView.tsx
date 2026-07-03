@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import TopicChat from "./TopicChat";
+import TopicStudyTools from "./TopicStudyTools";
 
 type Status = "pending" | "completed" | "skipped";
 
@@ -67,15 +67,15 @@ function TopicCard({
   onReschedule,
   showReschedule,
   enableChat,
+  isPaid,
 }: {
   item: PlanItem;
   onToggle: (item: PlanItem) => void;
   onReschedule?: (item: PlanItem) => void;
   showReschedule?: boolean;
   enableChat?: boolean;
+  isPaid?: boolean;
 }) {
-  const [chatOpen, setChatOpen] = useState(false);
-
   return (
     <div className="relative group">
       <button
@@ -128,18 +128,7 @@ function TopicCard({
         </button>
       )}
       {enableChat && item.topics.id && (
-        <div className="mt-1.5 pl-8">
-          <button
-            onClick={() => setChatOpen((v) => !v)}
-            className="text-xs text-slate-400 hover:text-indigo-600 flex items-center gap-1 transition-colors"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.86 9.86 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
-            {chatOpen ? "Hide tutor" : "Ask Claude"}
-          </button>
-          {chatOpen && <TopicChat topicId={item.topics.id} />}
-        </div>
+        <TopicStudyTools topicId={item.topics.id} isPaid={!!isPaid} />
       )}
     </div>
   );
@@ -151,12 +140,14 @@ export default function PlanView({
   documents,
   initialDate,
   planId,
+  isPaid = false,
 }: {
   initialItems: PlanItem[];
   examDate: string;
   documents: Document[];
   initialDate: string | null;
   planId: string;
+  isPaid?: boolean;
 }) {
   const [items, setItems] = useState<PlanItem[]>(initialItems);
   const [activeTab, setActiveTab] = useState<string>("all");
@@ -333,7 +324,7 @@ export default function PlanView({
         ) : (
           <div className="flex flex-col gap-2">
             {filteredItems.map((item) => (
-              <TopicCard key={item.id} item={item} onToggle={toggleStatus} enableChat />
+              <TopicCard key={item.id} item={item} onToggle={toggleStatus} enableChat isPaid={isPaid} />
             ))}
           </div>
         )}
