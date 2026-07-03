@@ -129,7 +129,7 @@ export default async function AccountPage() {
         <section className="p-5 border border-slate-200 rounded-xl bg-white">
           <h2 className="text-base font-semibold text-slate-800 mb-1">Email notifications</h2>
           <p className="text-xs text-slate-400 mb-4">
-            Choose which reminder emails you'd like to receive.
+            Choose which reminder emails you want to receive.
           </p>
           <NotificationPreferences initial={notifPrefs} />
         </section>

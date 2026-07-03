@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Local harness state — Claude Code worktrees contain full nested project
+    // copies (incl. generated .next) that would otherwise be linted and hang.
+    ".claude/**",
   ]),
 ]);
 

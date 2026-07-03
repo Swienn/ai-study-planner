@@ -197,8 +197,6 @@ export default function PlanView({
     setRescheduling(false);
   }
 
-  const todayStr = new Date().toISOString().split("T")[0];
-
   // ── DAY VIEW ────────────────────────────────────────────────────────────────
   if (initialDate) {
     const dayItems = items.filter((i) => i.date === initialDate);

@@ -56,10 +56,16 @@ The **Plan view** (`/plans/[id]`) shows topics for a specific date (day-view mod
 ```bash
 npm run dev       # start dev server at localhost:3000
 npm run build     # production build (run this to catch type errors before committing)
-npm run lint      # eslint
+npm run lint      # eslint — MUST pass; CI runs it and fails the build on errors
+npm test          # vitest run — planScheduler unit tests
+npm run test:watch # vitest in watch mode
 ```
 
-Always run `npm run build` before committing to catch TypeScript errors early.
+Before committing/pushing, run **all three**: `npm run build`, `npm run lint`, and `npm test`.
+CI (`.github/workflows/ci.yml`) runs lint + tests on every push to `main`, so a lint
+error that `next build` ignores (e.g. `react/no-unescaped-entities`, `react-hooks/set-state-in-effect`)
+will still turn CI red. `npm run build` alone is NOT enough. Note: eslint ignores `.claude/**`
+(harness worktrees) — see `eslint.config.mjs`.
 
 ## Stack
 

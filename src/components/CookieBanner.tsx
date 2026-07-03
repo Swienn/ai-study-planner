@@ -7,7 +7,10 @@ export default function CookieBanner() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
+    // One-time read of localStorage after mount — localStorage isn't available
+    // during SSR, so this can't move into a lazy useState initializer.
     const accepted = localStorage.getItem("cookie_consent");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!accepted) setVisible(true);
   }, []);
 
