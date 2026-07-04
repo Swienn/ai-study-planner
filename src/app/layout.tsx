@@ -13,9 +13,44 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://studytool.academy";
+const title = "StudyTool — turn your PDFs into a day-by-day study plan";
+const description =
+  "Upload your study material, set your exam date, and get a personalised, day-by-day study schedule — with AI summaries, flashcards, and quizzes for every topic.";
+
 export const metadata: Metadata = {
-  title: "StudyTool",
-  description: "Upload your study material and get a personalised day-by-day study plan.",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: title,
+    template: "%s · StudyTool",
+  },
+  description,
+  applicationName: "StudyTool",
+  keywords: [
+    "study planner",
+    "study schedule",
+    "exam preparation",
+    "flashcards",
+    "quiz generator",
+    "PDF to study plan",
+    "AI study tool",
+    "revision planner",
+  ],
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    siteName: "StudyTool",
+    url: "/",
+    title,
+    description,
+    locale: "en_GB",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title,
+    description,
+  },
+  robots: { index: true, follow: true },
 };
 
 export default function RootLayout({

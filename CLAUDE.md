@@ -137,7 +137,10 @@ src/
 │   ├── plans/[id]/               → day-by-day plan view, progress tracking
 │   ├── tutorial/                 → "How it works" 5-step walkthrough (linked from sidebar footer)
 │   ├── login/ signup/            → auth pages (with Google OAuth button)
-│   └── page.tsx                  → landing page
+│   ├── page.tsx                  → landing page
+│   ├── opengraph-image.tsx       → generated OG/social share card (1200×630); twitter-image.tsx re-exports it
+│   ├── sitemap.ts / robots.ts    → SEO: sitemap of public pages, robots (disallows app/api routes)
+│   └── layout.tsx                → root metadata (metadataBase, OG, Twitter cards) + fonts
 ├── components/
 │   ├── AppLayout.tsx             → wraps every authenticated page
 │   ├── AppSidebar.tsx            → left nav
