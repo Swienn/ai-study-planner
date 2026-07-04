@@ -120,9 +120,9 @@ export default function CourseUploadWidget({
               </div>
             ))}
           </div>
-          <button onClick={() => { setStatus("idle"); setResult(null); }} className="mt-2 text-xs text-muted-foreground hover:text-slate-900 underline">
-            Add another PDF
-          </button>
+          <p className="mt-2 text-xs text-green-600">
+            ✓ Saved — these topics are stored. Use the box above to add another PDF.
+          </p>
         </div>
       )}
     </div>
