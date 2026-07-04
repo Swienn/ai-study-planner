@@ -162,7 +162,7 @@ export default function PlanView({
   const [activeTab, setActiveTab] = useState<string>("all");
   const [rescheduling, setRescheduling] = useState(false);
   const [rescheduleError, setRescheduleError] = useState<string | null>(null);
-  const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
 
   async function toggleStatus(item: PlanItem) {
     const next: Status = item.status === "completed" ? "pending" : "completed";
@@ -241,7 +241,7 @@ export default function PlanView({
     const allCompleted = dayItems.filter((i) => i.status === "completed").length;
 
     const selectedItem =
-      filteredItems.find((i) => i.topics.id === selectedTopicId) ?? filteredItems[0] ?? null;
+      filteredItems.find((i) => i.id === selectedItemId) ?? filteredItems[0] ?? null;
 
     return (
       <div>
@@ -338,7 +338,7 @@ export default function PlanView({
                     onToggle={toggleStatus}
                     selectable
                     selected={selectedItem?.id === item.id}
-                    onSelect={(it) => setSelectedTopicId(it.topics.id)}
+                    onSelect={(it) => setSelectedItemId(it.id)}
                   />
                 ))}
               </div>
@@ -352,7 +352,7 @@ export default function PlanView({
           {/* Study panel */}
           <div className="lg:sticky lg:top-6">
             {selectedItem ? (
-              <TopicStudyPanel topic={selectedItem.topics} isPaid={isPaid} />
+              <TopicStudyPanel key={selectedItem.id} topic={selectedItem.topics} isPaid={isPaid} />
             ) : (
               <div className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-slate-400">
                 Select a topic to study it — summary, tutor chat, flashcards, and quizzes.

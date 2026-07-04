@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { anthropic } from "@/lib/anthropic";
-import { checkRateLimit } from "@/lib/rateLimit";
+import { allowAiUsage } from "@/lib/aiUsage";
 import { logError } from "@/lib/errorLog";
 
 export const runtime = "nodejs";
@@ -44,7 +44,7 @@ export async function POST(
   const { data: plan } = await supabase.from("plans").select("id").eq("id", planId).single();
   if (!plan) return Response.json({ error: "Plan not found" }, { status: 404 });
 
-  const allowed = await checkRateLimit(supabase, user.id, "plans", 10, 60_000);
+  const allowed = await allowAiUsage(supabase, user.id);
   if (!allowed) return Response.json({ error: "Too many requests — wait a minute" }, { status: 429 });
 
   const topics = await planTopics(supabase, planId);

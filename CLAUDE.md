@@ -166,6 +166,8 @@ course_chat_messages id, course_id, user_id, role(user/assistant), content, crea
 flashcards    id, topic_id, user_id, front, back, position
 quiz_questions id, topic_id, user_id, question, options(jsonb), correct_index, position
 error_logs    id, user_id(nullable), source(client/server), route, message, stack, created_at
+ai_usage      id, user_id, created_at   (per-user AI-generation counter for rate limiting)
+reminder_log  id, user_id, kind(daily/exam_countdown), sent_date, created_at   (cron idempotency; unique per user/kind/day)
 ```
 
 All tables have RLS — users can only access their own rows. `profiles` has SELECT-only RLS for users (no UPDATE), so tier can only be changed via service-role webhook or direct DB edit.
@@ -184,6 +186,7 @@ Migrations already applied:
 - `supabase/migration_study_experience.sql` — plan_items.completed_at, topics.study_guide, chat_messages table (Phase 8)
 - `supabase/migration_flashcards_quizzes.sql` — flashcards + quiz_questions tables, RLS per-user (Phase 9)
 - `supabase/migration_course_chat.sql` — course_chat_messages table (per-course "Ask Claude", alongside per-topic chat)
+- `supabase/migration_hardening.sql` — post-review fixes: `ai_usage` (correct AI rate-limit bucket via `src/lib/aiUsage.ts` `allowAiUsage`), unique constraints on flashcards/quiz_questions (no duplicate cached sets), `reminder_log` (idempotent cron)
 
 ### Key patterns
 
@@ -212,7 +215,9 @@ does NOT hit `/auth/callback`, which caused new signups to land on `/login` stil
 
 **Stripe** — lazy singleton in `src/lib/stripe.ts` via `getStripe()` to avoid build-time failure when env var is empty. Webhook uses `createAdminClient()` (service role, bypasses RLS). Never initialize Stripe at module level.
 
-**Rate limiting** — DB-based (no Redis): `src/lib/rateLimit.ts` counts rows in a window using Supabase. Applied to all mutating API routes.
+**Rate limiting** — DB-based (no Redis): `src/lib/rateLimit.ts` counts rows in a window using Supabase. Applied to all mutating API routes. **AI generation routes** (chat/summary/flashcards/quiz/exam-mode) use `src/lib/aiUsage.ts` `allowAiUsage()` — a per-user counter on the `ai_usage` table (20/min), so the limit tracks actual generations rather than an unrelated table. `/api/errors` also rate-limits anonymous reporters (global cap) so it can't be flooded.
+
+**Quiz answers** — `correct_index` is NEVER sent to the client. Options are shuffled once at generation time and persisted; the client submits answers to `POST /api/topics/[id]/quiz/score`, which scores server-side and returns the correct options only after submission.
 
 **Upgrade prompt** — client components catch HTTP 403 responses and set `limitHit` state to show `<UpgradeBanner>` instead of a plain error. The banner links to `/account`.
 

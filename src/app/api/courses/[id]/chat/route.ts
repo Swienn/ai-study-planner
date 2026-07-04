@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { anthropic } from "@/lib/anthropic";
-import { checkRateLimit } from "@/lib/rateLimit";
+import { allowAiUsage } from "@/lib/aiUsage";
 import { getUserTier } from "@/lib/tier";
 import { logError } from "@/lib/errorLog";
 
@@ -58,7 +58,7 @@ export async function POST(
   }
   const cleanMessage = message.trim().slice(0, MAX_MESSAGE_CHARS);
 
-  const allowed = await checkRateLimit(supabase, user.id, "course_chat_messages", 30, 60_000);
+  const allowed = await allowAiUsage(supabase, user.id);
   if (!allowed) return Response.json({ error: "Slow down — too many messages" }, { status: 429 });
 
   // Ownership (courses RLS scopes to the user).
