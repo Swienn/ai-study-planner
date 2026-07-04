@@ -94,10 +94,10 @@ export default async function TutorialPage() {
         <div className="mt-10 flex flex-col items-center gap-3 text-center">
           <p className="text-sm text-muted-foreground">Ready to try it?</p>
           <div className="flex gap-3">
-            <Button size="lg" className="bg-brand-gradient border-0 hover:opacity-90" render={<Link href={hasCourses ? "/courses/new" : "/onboarding"} />}>
+            <Button size="lg" className="bg-brand-gradient border-0 hover:opacity-90" nativeButton={false} render={<Link href={hasCourses ? "/courses/new" : "/onboarding"} />}>
               {hasCourses ? "Create a course" : "Get started"}
             </Button>
-            <Button size="lg" variant="outline" render={<Link href="/calendar" />}>
+            <Button size="lg" variant="outline" nativeButton={false} render={<Link href="/calendar" />}>
               Go to calendar
             </Button>
           </div>

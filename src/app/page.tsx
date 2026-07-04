@@ -36,8 +36,8 @@ export default function Home() {
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
         <Logo size="md" />
         <div className="flex items-center gap-2">
-          <Button variant="ghost" render={<Link href="/login" />}>Log in</Button>
-          <Button className="bg-brand-gradient border-0 hover:opacity-90" render={<Link href="/signup" />}>
+          <Button variant="ghost" nativeButton={false} render={<Link href="/login" />}>Log in</Button>
+          <Button className="bg-brand-gradient border-0 hover:opacity-90" nativeButton={false} render={<Link href="/signup" />}>
             Sign up
           </Button>
         </div>
@@ -54,10 +54,10 @@ export default function Home() {
           with AI summaries, flashcards, and quizzes for every topic.
         </p>
         <div className="mt-8 flex items-center justify-center gap-3">
-          <Button size="lg" className="bg-brand-gradient border-0 hover:opacity-90" render={<Link href="/signup" />}>
+          <Button size="lg" className="bg-brand-gradient border-0 hover:opacity-90" nativeButton={false} render={<Link href="/signup" />}>
             Get started free
           </Button>
-          <Button size="lg" variant="outline" render={<Link href="/login" />}>
+          <Button size="lg" variant="outline" nativeButton={false} render={<Link href="/login" />}>
             Log in
           </Button>
         </div>
