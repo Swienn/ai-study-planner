@@ -10,7 +10,7 @@ The app name is **StudyTool** — use this name consistently in UI text, emails,
 
 **Domain**: `studytool.academy` — live at `https://studytool.academy`, deployed on Vercel. Email forwarding: `privacy@studytool.academy` → personal inbox.
 
-**Privacy contact** — the `/privacy` page links to `privacy@studytool.academy` via `mailto:` (two places). The address must forward to a real inbox before launch: set up **Namecheap → Domain List → studytool.academy → Email Forwarding** (`privacy@` → personal inbox), or a Resend inbound route. No code change needed once forwarding is live.
+**Privacy contact** — the `/privacy` page links to `privacy@studytool.academy` via `mailto:` (two places). Namecheap email forwarding (`privacy@` → personal inbox) is **live**, so the contact address reaches a real inbox. No further action needed.
 
 **Remaining config note** — `NEXT_PUBLIC_SITE_URL` in `.env.local` stays `http://localhost:3000` for local dev; Vercel has `https://studytool.academy`.
 
