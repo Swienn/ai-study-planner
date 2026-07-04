@@ -59,7 +59,7 @@ export default async function DashboardPage() {
 
   return (
     <AppLayout>
-      <div className="p-6 pb-16 max-w-5xl">
+      <div className="p-6 pb-16 max-w-5xl mx-auto">
         <h1 className="text-2xl font-bold text-slate-900 mb-8">Manage courses</h1>
 
         {/* Courses */}

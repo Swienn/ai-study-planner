@@ -111,7 +111,7 @@ export default async function PlanPage({
 
   return (
     <AppLayout activePlanId={id} activeDate={activeDate}>
-      <div className={`p-6 pb-16 ${activeDate ? "max-w-6xl" : "max-w-2xl"}`}>
+      <div className={`p-6 pb-16 mx-auto ${activeDate ? "max-w-6xl" : "max-w-2xl"}`}>
         {/* Breadcrumb */}
         <div className="flex items-center justify-between mb-4">
           <Link

@@ -67,7 +67,7 @@ export default async function AccountPage() {
 
   return (
     <AppLayout>
-      <div className="p-6 pb-16 max-w-5xl">
+      <div className="p-6 pb-16 max-w-5xl mx-auto">
         <h1 className="text-2xl font-bold text-slate-900 mb-6">Account</h1>
 
         <div className="flex flex-col gap-6">

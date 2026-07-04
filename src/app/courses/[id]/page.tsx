@@ -74,7 +74,7 @@ export default async function CoursePage({
 
   return (
     <AppLayout>
-      <div className="p-6 pb-16 max-w-6xl">
+      <div className="p-6 pb-16 max-w-6xl mx-auto">
         {/* Breadcrumb */}
         <Link href="/dashboard" className="text-sm text-slate-400 hover:text-slate-700 transition-colors mb-4 inline-block">
           ← Manage courses
