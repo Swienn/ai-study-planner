@@ -156,7 +156,12 @@ async function claimReminder(
   const { error } = await supabase
     .from("reminder_log")
     .insert({ user_id: userId, kind, sent_date: sentDate });
-  return !error;
+  if (!error) return true;
+  // Unique violation → already sent today → skip this send.
+  if ((error as { code?: string }).code === "23505") return false;
+  // Any other error (e.g. reminder_log missing before the migration is applied)
+  // → fail open and still send, rather than silently suppressing all reminders.
+  return true;
 }
 
 async function loadPreferences(
