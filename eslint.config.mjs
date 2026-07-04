@@ -15,6 +15,11 @@ const eslintConfig = defineConfig([
     // Local harness state — Claude Code worktrees contain full nested project
     // copies (incl. generated .next) that would otherwise be linted and hang.
     ".claude/**",
+    // Playwright generated output (bundled report JS, traces) — not source.
+    "playwright-report/**",
+    "test-results/**",
+    "blob-report/**",
+    "playwright/.cache/**",
   ]),
 ]);
 

@@ -54,12 +54,21 @@ The **Plan view** (`/plans/[id]`) shows topics for a specific date (day-view mod
 ## Commands
 
 ```bash
-npm run dev       # start dev server at localhost:3000
-npm run build     # production build (run this to catch type errors before committing)
-npm run lint      # eslint — MUST pass; CI runs it and fails the build on errors
-npm test          # vitest run — planScheduler unit tests
+npm run dev        # start dev server at localhost:3000
+npm run build      # production build (run this to catch type errors before committing)
+npm run lint       # eslint — MUST pass; CI runs it and fails the build on errors
+npm test           # vitest run — unit tests (scoped to src/**/*.test.ts via vitest.config.ts)
 npm run test:watch # vitest in watch mode
+npm run test:e2e   # Playwright end-to-end (starts/reuses the dev server) — see e2e/README.md
+npm run test:e2e:ui # Playwright interactive UI mode
 ```
+
+**Testing layers:** `src/**/*.test.ts` are Vitest unit tests (planScheduler, analytics).
+`e2e/*.spec.ts` are Playwright browser tests (public pages + redirects always run;
+authenticated flows run only when `TEST_USER_EMAIL`/`TEST_USER_PASSWORD` are set).
+Vitest is scoped to `src/` so it doesn't pick up the e2e specs; eslint ignores
+`playwright-report/`, `test-results/`. Note: shadcn `<Button render={<Link/>}>` renders
+`<a role="button">`, so match those in tests by role `button`, not `link`.
 
 Before committing/pushing, run **all three**: `npm run build`, `npm run lint`, and `npm test`.
 CI (`.github/workflows/ci.yml`) runs lint + tests on every push to `main`, so a lint
