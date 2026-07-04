@@ -17,8 +17,11 @@ test.describe("Authenticated flows", () => {
   });
 
   test("calendar loads with the sidebar", async ({ page }) => {
-    await expect(page.getByText("COURSES")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Calendar" })).toBeVisible();
+    // The responsive shell renders the sidebar twice (desktop <aside> + mobile
+    // drawer), so sidebar locators match two elements. .first() targets the
+    // desktop copy — the visible one at the test viewport (1280px).
+    await expect(page.getByText("COURSES").first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "Calendar" }).first()).toBeVisible();
   });
 
   test("account page shows the current plan", async ({ page }) => {
@@ -29,7 +32,8 @@ test.describe("Authenticated flows", () => {
   });
 
   test('"How it works" opens the tutorial', async ({ page }) => {
-    await page.getByRole("link", { name: /how it works/i }).click();
+    // Sidebar is rendered twice (desktop + mobile) — click the visible desktop copy.
+    await page.getByRole("link", { name: /how it works/i }).first().click();
     await expect(page).toHaveURL(/\/tutorial/);
     await expect(page.getByRole("heading", { name: /a clear study plan/i })).toBeVisible();
     await expect(page.getByText("Create a course")).toBeVisible();
