@@ -5,6 +5,8 @@ import { getUserTier } from "@/lib/tier";
 import { logError } from "@/lib/errorLog";
 
 export const runtime = "nodejs";
+// Claude (Haiku) calls can exceed Vercel's 10s Hobby default; give them room.
+export const maxDuration = 60;
 
 const MAX_MESSAGE_CHARS = 2000;
 const HISTORY_LIMIT = 20;

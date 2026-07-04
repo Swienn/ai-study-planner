@@ -7,6 +7,9 @@ import { PDFParse } from "pdf-parse";
 import { randomUUID } from "crypto";
 
 export const runtime = "nodejs";
+// PDF parse + a Claude Haiku extraction call can exceed Vercel's 10s Hobby
+// default, which kills the function and returns a non-JSON 500. Give it room.
+export const maxDuration = 60;
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 const MAX_TEXT_CHARS = 50_000;
@@ -23,6 +26,26 @@ type RawTopic = {
 };
 
 export async function POST(request: Request) {
+  try {
+    return await handleUpload(request);
+  } catch (e) {
+    // Anything uncaught here (e.g. a pdf-parse/pdfjs crash) would otherwise
+    // return a raw non-JSON 500 that the client surfaces as "Network error".
+    // Log it with a stack trace and return a proper JSON error instead.
+    await logError({
+      source: "server",
+      route: "/api/documents/upload",
+      message: `Unhandled upload error: ${(e as Error).message}`,
+      stack: (e as Error).stack,
+    });
+    return Response.json(
+      { error: "Something went wrong processing your PDF — please try again" },
+      { status: 500 }
+    );
+  }
+}
+
+async function handleUpload(request: Request) {
   // 1. Authenticate — getUser() validates the JWT server-side, cannot be spoofed
   const supabase = await createClient();
   const {

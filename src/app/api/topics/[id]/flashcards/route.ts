@@ -5,6 +5,8 @@ import { requirePaidTopicAccess } from "@/lib/studyTools";
 import { logError } from "@/lib/errorLog";
 
 export const runtime = "nodejs";
+// Claude (Haiku) calls can exceed Vercel's 10s Hobby default; give them room.
+export const maxDuration = 60;
 
 type Card = { front: string; back: string };
 

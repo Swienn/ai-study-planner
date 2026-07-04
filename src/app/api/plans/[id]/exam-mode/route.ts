@@ -4,6 +4,8 @@ import { allowAiUsage } from "@/lib/aiUsage";
 import { logError } from "@/lib/errorLog";
 
 export const runtime = "nodejs";
+// Claude (Haiku) calls can exceed Vercel's 10s Hobby default; give them room.
+export const maxDuration = 60;
 
 const MAX_TOPICS = 60;
 
