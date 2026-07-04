@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { anthropic } from "@/lib/anthropic";
-import { checkRateLimit } from "@/lib/rateLimit";
+import { allowAiUsage } from "@/lib/aiUsage";
 import { logError } from "@/lib/errorLog";
 
 export const runtime = "nodejs";
@@ -51,7 +51,7 @@ export async function POST(
     return Response.json({ summary: topic.study_guide });
   }
 
-  const allowed = await checkRateLimit(supabase, user.id, "chat_messages", 30, 60_000);
+  const allowed = await allowAiUsage(supabase, user.id);
   if (!allowed) return Response.json({ error: "Too many requests — wait a minute" }, { status: 429 });
 
   // Optional grounding in the source document.
@@ -93,7 +93,20 @@ export async function POST(
     return Response.json({ error: "Couldn't generate a summary — please try again" }, { status: 502 });
   }
 
-  await supabase.from("topics").update({ study_guide: summary.slice(0, 4000) }).eq("id", topicId);
+  const { error: cacheErr } = await supabase
+    .from("topics")
+    .update({ study_guide: summary.slice(0, 4000) })
+    .eq("id", topicId);
+  if (cacheErr) {
+    // Not fatal — the summary is still returned — but surface it so a
+    // silently-failing cache (which re-bills Claude next time) is visible.
+    await logError({
+      source: "server",
+      route: "/api/topics/[id]/summary",
+      message: `study_guide cache write failed: ${cacheErr.message}`,
+      userId: user.id,
+    });
+  }
 
   return Response.json({ summary: summary.slice(0, 4000) });
 }

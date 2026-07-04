@@ -1,37 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { anthropic } from "@/lib/anthropic";
-import { checkRateLimit } from "@/lib/rateLimit";
+import { allowAiUsage } from "@/lib/aiUsage";
 import { requirePaidTopicAccess } from "@/lib/studyTools";
 import { logError } from "@/lib/errorLog";
 
 export const runtime = "nodejs";
 
 type RawQuestion = { question: string; options: string[]; correct_index: number };
-type QuizQuestion = { id: string; question: string; options: string[]; correct_index: number };
 
-// Randomize option order per question (recomputing correct_index) so the answer
-// isn't stuck at a fixed position — Claude has a strong position bias when
-// generating multiple-choice options. Applied on every read, so it also fixes
-// quizzes that were cached before this shuffle existed.
-function shuffled(questions: QuizQuestion[]): QuizQuestion[] {
-  return questions.map((q) => {
-    const options = Array.isArray(q.options) ? q.options : [];
-    const order = options.map((_, i) => i);
-    for (let k = order.length - 1; k > 0; k--) {
-      const j = Math.floor(Math.random() * (k + 1));
-      [order[k], order[j]] = [order[j], order[k]];
-    }
-    const newCorrect = order.indexOf(q.correct_index);
-    return {
-      ...q,
-      options: order.map((k) => options[k]),
-      correct_index: newCorrect === -1 ? q.correct_index : newCorrect,
-    };
-  });
-}
-
-// Load cached quiz questions (options only — the client submits answers to be
-// scored so the correct index isn't exposed up front).
+// Load cached quiz questions WITHOUT correct_index — the answer is never sent to
+// the client; scoring happens server-side in the /quiz/score route.
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -43,12 +21,12 @@ export async function GET(
   const { id: topicId } = await params;
   const { data } = await supabase
     .from("quiz_questions")
-    .select("id, question, options, correct_index")
+    .select("id, question, options")
     .eq("topic_id", topicId)
     .eq("user_id", user.id)
     .order("position");
 
-  return Response.json({ questions: shuffled((data ?? []) as unknown as QuizQuestion[]) });
+  return Response.json({ questions: data ?? [] });
 }
 
 // Generate (and cache) a quiz for a topic. Paid tiers only.
@@ -67,15 +45,15 @@ export async function POST(
 
   const { data: existing } = await supabase
     .from("quiz_questions")
-    .select("id, question, options, correct_index")
+    .select("id, question, options")
     .eq("topic_id", topicId)
     .eq("user_id", user.id)
     .order("position");
   if (existing && existing.length > 0) {
-    return Response.json({ questions: shuffled(existing as unknown as QuizQuestion[]) });
+    return Response.json({ questions: existing });
   }
 
-  const allowed = await checkRateLimit(supabase, user.id, "quiz_questions", 20, 60_000);
+  const allowed = await allowAiUsage(supabase, user.id);
   if (!allowed) return Response.json({ error: "Too many requests — wait a minute" }, { status: 429 });
 
   let questions: RawQuestion[];
@@ -122,19 +100,41 @@ Exactly 4 options each. Make distractors plausible.`,
         q.correct_index <= 3
     )
     .slice(0, 10)
-    .map((q, i) => ({
-      topic_id: topicId,
-      user_id: user.id,
-      question: q.question.slice(0, 500),
-      options: q.options.map((o) => String(o).slice(0, 200)),
-      correct_index: q.correct_index,
-      position: i,
-    }));
+    .map((q, i) => {
+      // Shuffle options ONCE at generation time and persist that order, so the
+      // answer position is randomized (Claude biases toward a fixed slot) and
+      // the stored correct_index matches what the client will see.
+      const order = [0, 1, 2, 3];
+      for (let k = order.length - 1; k > 0; k--) {
+        const j = Math.floor(Math.random() * (k + 1));
+        [order[k], order[j]] = [order[j], order[k]];
+      }
+      return {
+        topic_id: topicId,
+        user_id: user.id,
+        question: q.question.slice(0, 500),
+        options: order.map((k) => String(q.options[k]).slice(0, 200)),
+        correct_index: order.indexOf(q.correct_index),
+        position: i,
+      };
+    });
 
-  const { data: inserted } = await supabase
+  const { data: inserted, error: insErr } = await supabase
     .from("quiz_questions")
     .insert(rows)
-    .select("id, question, options, correct_index");
+    .select("id, question, options");
 
-  return Response.json({ questions: shuffled((inserted ?? []) as unknown as QuizQuestion[]) });
+  if (insErr) {
+    // A concurrent request already generated this quiz (unique constraint) —
+    // return the cached set instead of duplicating.
+    const { data: existingNow } = await supabase
+      .from("quiz_questions")
+      .select("id, question, options")
+      .eq("topic_id", topicId)
+      .eq("user_id", user.id)
+      .order("position");
+    return Response.json({ questions: existingNow ?? [] });
+  }
+
+  return Response.json({ questions: inserted ?? [] });
 }

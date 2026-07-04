@@ -102,6 +102,9 @@ export async function GET(request: Request) {
     const courses = [...byPlan.entries()].map(([title, count]) => ({ title, count }));
     const totalTopics = courses.reduce((sum, c) => sum + c.count, 0);
     const { subject, html } = dailyReminderEmail({ totalTopics, courses });
+    // Idempotency: claim today's daily reminder for this user. If the cron
+    // double-fires, the unique (user_id, kind, sent_date) blocks a second send.
+    if (!(await claimReminder(supabase, userId, "daily", today))) continue;
     try {
       await sendEmail({ to: email, subject, html });
       sent++;
@@ -129,6 +132,7 @@ export async function GET(request: Request) {
       daysUntil: COUNTDOWN_DAYS,
       remaining,
     });
+    if (!(await claimReminder(supabase, p.user_id, "exam_countdown", today))) continue;
     try {
       await sendEmail({ to: email, subject, html });
       sent++;
@@ -138,6 +142,26 @@ export async function GET(request: Request) {
   }
 
   return Response.json({ ok: true, today, examDay, sent, errors });
+}
+
+// Records that a reminder was sent to a user today, returning false if it was
+// already sent (unique (user_id, kind, sent_date) violation) — the idempotency
+// guard against duplicate emails when the cron fires more than once.
+async function claimReminder(
+  supabase: ReturnType<typeof createAdminClient>,
+  userId: string,
+  kind: "daily" | "exam_countdown",
+  sentDate: string
+): Promise<boolean> {
+  const { error } = await supabase
+    .from("reminder_log")
+    .insert({ user_id: userId, kind, sent_date: sentDate });
+  if (!error) return true;
+  // Unique violation → already sent today → skip this send.
+  if ((error as { code?: string }).code === "23505") return false;
+  // Any other error (e.g. reminder_log missing before the migration is applied)
+  // → fail open and still send, rather than silently suppressing all reminders.
+  return true;
 }
 
 async function loadPreferences(

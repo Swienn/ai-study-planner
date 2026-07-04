@@ -27,6 +27,23 @@ export type PanelTopic = { id: string; title: string; summary: string; difficult
 
 export default function TopicStudyPanel({ topic, isPaid }: { topic: PanelTopic; isPaid: boolean }) {
   const [tab, setTab] = useState<Tab>("summary");
+  // Lazily mount a tab the first time it's opened, then keep it mounted (hidden)
+  // so switching tabs doesn't lose in-progress quiz answers / flashcard position
+  // or re-fetch. The whole panel is keyed by topic in PlanView, so it resets per
+  // topic. (PanelTopic id doesn't change within a mount.)
+  const [opened, setOpened] = useState<Set<Tab>>(() => new Set<Tab>(["summary"]));
+
+  function selectTab(t: Tab) {
+    setTab(t);
+    setOpened((prev) => (prev.has(t) ? prev : new Set(prev).add(t)));
+  }
+
+  function panelFor(t: Tab) {
+    if (t === "summary") return <TopicSummary topicId={topic.id} />;
+    if (t === "chat") return isPaid ? <ChatBox endpoint={`/api/topics/${topic.id}/chat`} /> : <UpgradePrompt feature="Ask Claude" />;
+    if (t === "flashcards") return isPaid ? <FlashcardDeck topicId={topic.id} /> : <UpgradePrompt feature="Flashcards" />;
+    return isPaid ? <Quiz topicId={topic.id} /> : <UpgradePrompt feature="Quizzes" />;
+  }
 
   return (
     <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
@@ -41,7 +58,7 @@ export default function TopicStudyPanel({ topic, isPaid }: { topic: PanelTopic; 
         {TABS.map((t) => (
           <button
             key={t.key}
-            onClick={() => setTab(t.key)}
+            onClick={() => selectTab(t.key)}
             className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all ${
               tab === t.key ? "bg-background text-slate-900 shadow-sm" : "text-muted-foreground hover:text-slate-700"
             }`}
@@ -56,11 +73,14 @@ export default function TopicStudyPanel({ topic, isPaid }: { topic: PanelTopic; 
         ))}
       </div>
 
-      <div key={topic.id + tab}>
-        {tab === "summary" && <TopicSummary topicId={topic.id} />}
-        {tab === "chat" && (isPaid ? <ChatBox endpoint={`/api/topics/${topic.id}/chat`} /> : <UpgradePrompt feature="Ask Claude" />)}
-        {tab === "flashcards" && (isPaid ? <FlashcardDeck topicId={topic.id} /> : <UpgradePrompt feature="Flashcards" />)}
-        {tab === "quiz" && (isPaid ? <Quiz topicId={topic.id} /> : <UpgradePrompt feature="Quizzes" />)}
+      <div>
+        {TABS.map((t) =>
+          opened.has(t.key) ? (
+            <div key={t.key} className={tab === t.key ? "" : "hidden"}>
+              {panelFor(t.key)}
+            </div>
+          ) : null
+        )}
       </div>
     </div>
   );

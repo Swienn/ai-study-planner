@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { anthropic } from "@/lib/anthropic";
-import { checkRateLimit } from "@/lib/rateLimit";
+import { allowAiUsage } from "@/lib/aiUsage";
 import { requirePaidTopicAccess } from "@/lib/studyTools";
 import { logError } from "@/lib/errorLog";
 
@@ -54,7 +54,7 @@ export async function POST(
     return Response.json({ flashcards: existing });
   }
 
-  const allowed = await checkRateLimit(supabase, user.id, "flashcards", 20, 60_000);
+  const allowed = await allowAiUsage(supabase, user.id);
   if (!allowed) return Response.json({ error: "Too many requests — wait a minute" }, { status: 429 });
 
   let cards: Card[];
@@ -98,10 +98,23 @@ Return ONLY a valid JSON array — no markdown, no code fences. Each element: { 
       position: i,
     }));
 
-  const { data: inserted } = await supabase
+  const { data: inserted, error: insErr } = await supabase
     .from("flashcards")
     .insert(rows)
     .select("id, front, back");
+
+  if (insErr) {
+    // A concurrent request already generated this set (blocked by the
+    // (user_id, topic_id, position) unique constraint) — return the cached set
+    // instead of duplicating it.
+    const { data: existingNow } = await supabase
+      .from("flashcards")
+      .select("id, front, back")
+      .eq("topic_id", topicId)
+      .eq("user_id", user.id)
+      .order("position");
+    return Response.json({ flashcards: existingNow ?? [] });
+  }
 
   return Response.json({ flashcards: inserted ?? [] });
 }

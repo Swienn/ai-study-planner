@@ -28,11 +28,22 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid report" }, { status: 400 });
   }
 
-  // Cap log spam from any single user (admin client so RLS doesn't hide the count).
+  // Rate-limit to prevent log-flooding (admin client so RLS doesn't hide the count).
+  const admin = createAdminClient();
   if (user) {
-    const admin = createAdminClient();
     const allowed = await checkRateLimit(admin, user.id, "error_logs", 30, 60_000);
     if (!allowed) return Response.json({ ok: true }); // silently drop
+  } else {
+    // Anonymous reporters (e.g. errors on public pages) share one global cap,
+    // so an unauthenticated loop can't spam the table unbounded.
+    const since = new Date(Date.now() - 60_000).toISOString();
+    const { count } = await admin
+      .from("error_logs")
+      .select("id", { count: "exact", head: true })
+      .is("user_id", null)
+      .eq("source", "client")
+      .gte("created_at", since);
+    if ((count ?? 0) >= 60) return Response.json({ ok: true }); // silently drop
   }
 
   await logError({
