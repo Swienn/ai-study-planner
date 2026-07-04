@@ -23,6 +23,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [alreadyRegistered, setAlreadyRegistered] = useState(false);
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -40,19 +41,29 @@ export default function SignupPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setAlreadyRegistered(false);
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       return;
     }
     setLoading(true);
     const supabase = createClient();
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: { emailRedirectTo: `${location.origin}/auth/callback` },
     });
-    if (error) setError(error.message);
-    else setSuccess(true);
+    if (error) {
+      setError(error.message);
+    } else if (data.user && data.user.identities?.length === 0) {
+      // Supabase's anti-enumeration behaviour: signing up with an already-
+      // registered (confirmed) email returns an obfuscated user with no
+      // identities and sends no email. Surface it instead of showing the
+      // "check your email" screen for a mail that will never arrive.
+      setAlreadyRegistered(true);
+    } else {
+      setSuccess(true);
+    }
     setLoading(false);
   }
 
@@ -137,6 +148,15 @@ export default function SignupPage() {
               )}
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
+            {alreadyRegistered && (
+              <p className="text-sm text-destructive">
+                An account with this email already exists.{" "}
+                <Link href="/login" className="font-medium underline">
+                  Log in instead
+                </Link>
+                .
+              </p>
+            )}
             <Button
               type="submit"
               disabled={loading || (!!confirmPassword && confirmPassword !== password)}
