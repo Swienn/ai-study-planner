@@ -3,7 +3,7 @@ import { anthropic } from "@/lib/anthropic";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { getUserTier, LIMITS } from "@/lib/tier";
 import { logError } from "@/lib/errorLog";
-import { PDFParse } from "pdf-parse";
+import { extractText, getDocumentProxy } from "unpdf";
 import { randomUUID } from "crypto";
 
 export const runtime = "nodejs";
@@ -127,7 +127,7 @@ async function handleUpload(request: Request) {
   }
 
   // 6. Read file once, then immediately create two independent copies before any parsing.
-  //    pdfjs-dist (used by pdf-parse) detaches the ArrayBuffer it receives in Node.js,
+  //    pdfjs (used by unpdf) detaches the ArrayBuffer it receives in Node.js,
   //    so we must isolate the storage copy fully before passing anything to the parser.
   const arrayBuffer = await file.arrayBuffer();
   // storageBuffer: Node.js Buffer backed by its own memory — safe from pdfjs detachment
@@ -148,19 +148,19 @@ async function handleUpload(request: Request) {
     );
   }
 
-  // 8. Extract text — pass parseBytes (pdfjs may detach it; storageBuffer is unaffected)
+  // 8. Extract text with unpdf (a serverless-hardened pdfjs build). pdf-parse's
+  //    pdfjs-dist v5 crashed the function on Vercel; unpdf works across runtimes.
+  //    parseBytes is the copy unpdf may detach; storageBuffer is a separate copy.
   let rawText: string;
-  const parser = new PDFParse({ data: parseBytes });
   try {
-    const result = await parser.getText();
-    rawText = result.text.slice(0, MAX_TEXT_CHARS).trim();
+    const pdf = await getDocumentProxy(parseBytes);
+    const { text } = await extractText(pdf, { mergePages: true });
+    rawText = String(text).slice(0, MAX_TEXT_CHARS).trim();
   } catch {
     return Response.json(
       { error: "Could not extract text from PDF" },
       { status: 422 }
     );
-  } finally {
-    await parser.destroy();
   }
 
   if (!rawText) {
