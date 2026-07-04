@@ -15,10 +15,10 @@ export default async function PlanPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ date?: string }>;
+  searchParams: Promise<{ date?: string; item?: string }>;
 }) {
   const { id } = await params;
-  const { date: activeDate } = await searchParams;
+  const { date: activeDate, item: selectedItem } = await searchParams;
 
   const supabase = await createClient();
   const {
@@ -175,6 +175,7 @@ export default async function PlanPage({
           initialDate={activeDate ?? null}
           planId={id}
           isPaid={isPaid}
+          initialSelectedItemId={selectedItem ?? null}
         />
       </div>
     </AppLayout>

@@ -61,6 +61,36 @@ function isPast(dateStr: string) {
   return dateStr < new Date().toISOString().split("T")[0];
 }
 
+function TopicCardBody({ item, showStudy }: { item: PlanItem; showStudy: boolean }) {
+  return (
+    <>
+      <div className="flex items-center gap-2 flex-wrap">
+        <span
+          className={`text-sm font-medium ${
+            item.status === "completed" ? "line-through text-slate-400" : "text-slate-800"
+          }`}
+        >
+          {item.topics.title}
+        </span>
+        <span className={`text-xs px-1.5 py-0.5 rounded-full ${difficultyColor[item.topics.difficulty]}`}>
+          {difficultyLabel[item.topics.difficulty]}
+        </span>
+      </div>
+      <p className="text-xs text-slate-500 mt-0.5 leading-relaxed line-clamp-2">
+        {item.topics.summary}
+      </p>
+      {showStudy && (
+        <span className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-primary">
+          Study
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </span>
+      )}
+    </>
+  );
+}
+
 function TopicCard({
   item,
   onToggle,
@@ -69,6 +99,7 @@ function TopicCard({
   selectable,
   selected,
   onSelect,
+  href,
 }: {
   item: PlanItem;
   onToggle: (item: PlanItem) => void;
@@ -77,6 +108,7 @@ function TopicCard({
   selectable?: boolean;
   selected?: boolean;
   onSelect?: (item: PlanItem) => void;
+  href?: string;
 }) {
   return (
     <div
@@ -98,35 +130,19 @@ function TopicCard({
       >
         {statusIcon[item.status]}
       </button>
-      {/* Body selects (day view) or toggles (full plan) */}
-      <button
-        onClick={() => (selectable && onSelect ? onSelect(item) : onToggle(item))}
-        className="flex-1 min-w-0 text-left"
-      >
-        <div className="flex items-center gap-2 flex-wrap">
-          <span
-            className={`text-sm font-medium ${
-              item.status === "completed" ? "line-through text-slate-400" : "text-slate-800"
-            }`}
-          >
-            {item.topics.title}
-          </span>
-          <span className={`text-xs px-1.5 py-0.5 rounded-full ${difficultyColor[item.topics.difficulty]}`}>
-            {difficultyLabel[item.topics.difficulty]}
-          </span>
-        </div>
-        <p className="text-xs text-slate-500 mt-0.5 leading-relaxed line-clamp-2">
-          {item.topics.summary}
-        </p>
-        {selectable && (
-          <span className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-primary">
-            Study
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
-          </span>
-        )}
-      </button>
+      {/* Body: navigate to the day view (full plan), select (day view), or toggle */}
+      {href ? (
+        <Link href={href} className="flex-1 min-w-0 text-left">
+          <TopicCardBody item={item} showStudy />
+        </Link>
+      ) : (
+        <button
+          onClick={() => (selectable && onSelect ? onSelect(item) : onToggle(item))}
+          className="flex-1 min-w-0 text-left"
+        >
+          <TopicCardBody item={item} showStudy={!!selectable} />
+        </button>
+      )}
       {showReschedule && item.status === "pending" && onReschedule && (
         <button
           onClick={() => onReschedule(item)}
@@ -150,6 +166,7 @@ export default function PlanView({
   initialDate,
   planId,
   isPaid = false,
+  initialSelectedItemId = null,
 }: {
   initialItems: PlanItem[];
   examDate: string;
@@ -157,12 +174,13 @@ export default function PlanView({
   initialDate: string | null;
   planId: string;
   isPaid?: boolean;
+  initialSelectedItemId?: string | null;
 }) {
   const [items, setItems] = useState<PlanItem[]>(initialItems);
   const [activeTab, setActiveTab] = useState<string>("all");
   const [rescheduling, setRescheduling] = useState(false);
   const [rescheduleError, setRescheduleError] = useState<string | null>(null);
-  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(initialSelectedItemId);
 
   async function toggleStatus(item: PlanItem) {
     const next: Status = item.status === "completed" ? "pending" : "completed";
@@ -429,8 +447,9 @@ export default function PlanView({
           return (
             <div key={day.date}>
               <div className="flex items-center gap-2 mb-3">
-                <span
-                  className={`text-sm font-semibold ${
+                <Link
+                  href={`/plans/${planId}?date=${day.date}`}
+                  className={`text-sm font-semibold hover:underline ${
                     isToday(day.date)
                       ? "text-slate-900"
                       : pastWithPending
@@ -441,7 +460,7 @@ export default function PlanView({
                   }`}
                 >
                   {formatDate(day.date)}
-                </span>
+                </Link>
                 {isToday(day.date) && (
                   <span className="text-xs bg-indigo-600 text-white px-2 py-0.5 rounded-full font-medium">
                     Today
@@ -461,6 +480,7 @@ export default function PlanView({
                     onToggle={toggleStatus}
                     onReschedule={rescheduleItem}
                     showReschedule={true}
+                    href={`/plans/${planId}?date=${item.date}&item=${item.id}`}
                   />
                 ))}
               </div>
@@ -480,7 +500,7 @@ export default function PlanView({
       </div>
 
       <p className="text-xs text-slate-400 mt-6">
-        Click a topic to mark it done or undone · Hover to move it to the next day
+        Click the circle to mark a topic done · click a topic to open its day and study it
       </p>
     </div>
   );
