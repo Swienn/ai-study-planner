@@ -10,9 +10,9 @@ The app name is **StudyTool** — use this name consistently in UI text, emails,
 
 **Domain**: `studytool.academy` — live at `https://studytool.academy`, deployed on Vercel. Email forwarding: `privacy@studytool.academy` → personal inbox.
 
-**Remaining URL/email placeholders** — the following still need updating when email is configured:
-- `privacy@studytool.academy` in `/privacy` page — needs a real inbox (set up via Resend or Namecheap email)
-- `NEXT_PUBLIC_SITE_URL` in `.env.local` stays `http://localhost:3000` for local dev; Vercel has `https://studytool.academy`
+**Privacy contact** — the `/privacy` page links to `privacy@studytool.academy` via `mailto:` (two places). The address must forward to a real inbox before launch: set up **Namecheap → Domain List → studytool.academy → Email Forwarding** (`privacy@` → personal inbox), or a Resend inbound route. No code change needed once forwarding is live.
+
+**Remaining config note** — `NEXT_PUBLIC_SITE_URL` in `.env.local` stays `http://localhost:3000` for local dev; Vercel has `https://studytool.academy`.
 
 **The core problem it solves**: students have an exam date, a pile of PDFs, and no idea how to spread the material across the days they have left.
 
@@ -82,7 +82,8 @@ will still turn CI red. `npm run build` alone is NOT enough. Note: eslint ignore
 - **Database + Auth + Storage**: Supabase (PostgreSQL with RLS)
 - **AI**: Anthropic Claude API — `claude-haiku-4-5-20251001` for topic extraction
 - **Payments**: Stripe (subscriptions, billing portal)
-- **Deployment**: Vercel (not yet deployed)
+- **Deployment**: Vercel — live at `https://studytool.academy`
+- **Analytics**: Vercel Analytics + Speed Insights (`@vercel/analytics/next`, `@vercel/speed-insights/next`, mounted in root `layout.tsx`)
 
 ### Next.js 16 differences from earlier versions
 
@@ -329,7 +330,7 @@ For local webhook testing run `stripe listen --forward-to localhost:3000/api/str
 ### Phase 10 — Deploy to Vercel
 - 10.1 ✅ `npm run build` clean; no secrets prefixed `NEXT_PUBLIC_`
 - 10.2 ✅ Unit tests for `planScheduler.ts` (Vitest) — `src/lib/planScheduler.test.ts`, 12 tests: scheduling, order, budget, overflow spreading, blocked days, conflict avoidance, edge cases. Run with `npm test`. Caught + fixed a UTC/local off-by-one in `addDays`/`daysBetween`.
-- 10.3 ✅ GitHub Actions CI — `.github/workflows/ci.yml` runs lint + tests on every push/PR to main. (To gate Vercel deploys on green, set Vercel → Git → "Only deploy if CI passes" or an Ignored Build Step; see notes below.)
+- 10.3 ✅ GitHub Actions CI — `.github/workflows/ci.yml`: `test` job (lint + Vitest) and `e2e` job (Playwright). The e2e job self-skips (stays green) unless `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` repo secrets are set; add `TEST_USER_EMAIL` / `TEST_USER_PASSWORD` secrets to also run the authenticated specs. (To gate Vercel deploys on green, set Vercel → Git → "Only deploy if CI passes" or an Ignored Build Step; see notes below.)
 - 10.4 ✅ Connected GitHub repo to Vercel; all env vars set (Supabase, Anthropic, Stripe sandbox keys, Resend API key)
 - 10.5 ◻ Supabase Site URL + Redirect URLs set to studytool.academy ✅; privacy/terms pages updated ✅; **Stripe live mode** still pending — see the "Stripe go-live checklist" above (config only, no code changes). **⏳ Blocked on obtaining a KvK number (Dutch CoC registration) before Stripe live activation — Sven TODO.**
 - 10.6 ✅ Domain studytool.academy on Namecheap, pointed to Vercel (auto SSL), auto-renew on, contacts verified
