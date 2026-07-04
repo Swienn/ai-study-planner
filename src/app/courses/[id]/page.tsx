@@ -152,7 +152,7 @@ export default async function CoursePage({
             </div>
           )}
 
-          <CourseUploadWidget courseId={course.id} />
+          <CourseUploadWidget courseId={course.id} docIds={docs.map((d) => d.id)} />
         </section>
         </div>
 

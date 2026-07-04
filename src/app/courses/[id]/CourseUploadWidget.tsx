@@ -15,7 +15,13 @@ const difficultyColor = {
 
 const difficultyLabel = { 1: "Easy", 2: "Medium", 3: "Hard" } as const;
 
-export default function CourseUploadWidget({ courseId }: { courseId: string }) {
+export default function CourseUploadWidget({
+  courseId,
+  docIds,
+}: {
+  courseId: string;
+  docIds: string[];
+}) {
   const [status, setStatus] = useState<"idle" | "uploading" | "done" | "error">("idle");
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -97,7 +103,11 @@ export default function CourseUploadWidget({ courseId }: { courseId: string }) {
         <p className="mt-2 text-sm text-red-600">{error}</p>
       ) : null}
 
-      {status === "done" && result && (
+      {/* Only show the just-uploaded preview while its document still exists.
+          When the doc is removed, the server refresh drops it from docIds and
+          the preview clears too — otherwise the topics linger until a manual
+          page refresh. */}
+      {status === "done" && result && docIds.includes(result.document.id) && (
         <div className="mt-4 p-3 bg-muted/40 rounded-xl border border-border">
           <p className="text-sm font-medium mb-2 text-slate-800">{result.document.filename} — {result.topics.length} topics</p>
           <div className="flex flex-col gap-1.5">
