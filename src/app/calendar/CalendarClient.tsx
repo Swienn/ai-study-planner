@@ -157,7 +157,7 @@ export default function CalendarClient({
   }
 
   return (
-    <div className="p-6">
+    <div className="p-6 pb-16">
       {/* Week navigation */}
       <div className="flex items-center gap-3 mb-8">
         <button
@@ -265,7 +265,7 @@ export default function CalendarClient({
           </div>
         )}
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto p-1.5">
           <div className="min-w-[640px]">
             {/* Header row */}
             <div className="grid gap-1.5 mb-2" style={{ gridTemplateColumns: "180px repeat(7, 1fr)" }}>
@@ -366,7 +366,7 @@ export default function CalendarClient({
                             router.push(`/plans/${course.planId}?date=${date}`)
                           }
                           disabled={!canNavigate}
-                          className={`rounded-xl py-3 px-2 transition-all text-center min-h-[60px] flex flex-col items-center justify-center ${
+                          className={`rounded-xl py-3 px-2 transition-all text-center min-h-[84px] flex flex-col items-center justify-center ${
                             total > 0
                               ? `ring-1 ${cellColors} cursor-pointer`
                               : isToday

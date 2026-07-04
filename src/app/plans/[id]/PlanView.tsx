@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import TopicStudyTools from "./TopicStudyTools";
+import TopicStudyPanel from "./TopicStudyPanel";
 
 type Status = "pending" | "completed" | "skipped";
 
@@ -66,69 +66,78 @@ function TopicCard({
   onToggle,
   onReschedule,
   showReschedule,
-  enableChat,
-  isPaid,
+  selectable,
+  selected,
+  onSelect,
 }: {
   item: PlanItem;
   onToggle: (item: PlanItem) => void;
   onReschedule?: (item: PlanItem) => void;
   showReschedule?: boolean;
-  enableChat?: boolean;
-  isPaid?: boolean;
+  selectable?: boolean;
+  selected?: boolean;
+  onSelect?: (item: PlanItem) => void;
 }) {
   return (
-    <div className="relative group">
+    <div
+      className={`relative group flex items-start gap-3 p-4 rounded-xl border transition-all hover:shadow-sm ${
+        selected
+          ? "border-primary ring-2 ring-primary/30 bg-white"
+          : item.status === "skipped"
+          ? "border-border opacity-50 bg-white"
+          : item.status === "completed"
+          ? "border-green-200 bg-green-50"
+          : "border-border bg-white hover:border-slate-300"
+      }`}
+    >
+      {/* Circle toggles done */}
       <button
         onClick={() => onToggle(item)}
-        className={`flex items-start gap-3 p-4 rounded-xl border text-left transition-all hover:shadow-sm w-full ${
-          item.status === "skipped"
-            ? "border-slate-200 opacity-50 bg-white"
-            : item.status === "completed"
-            ? "border-green-200 bg-green-50"
-            : "border-slate-200 bg-white hover:border-slate-300"
-        }`}
+        title={item.status === "completed" ? "Mark not done" : "Mark done"}
+        className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center text-xs font-bold ${statusStyle[item.status]}`}
       >
-        <span
-          className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center text-xs font-bold ${statusStyle[item.status]}`}
-        >
-          {statusIcon[item.status]}
-        </span>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span
-              className={`text-sm font-medium ${
-                item.status === "completed"
-                  ? "line-through text-slate-400"
-                  : "text-slate-800"
-              }`}
-            >
-              {item.topics.title}
-            </span>
-            <span
-              className={`text-xs px-1.5 py-0.5 rounded-full ${difficultyColor[item.topics.difficulty]}`}
-            >
-              {difficultyLabel[item.topics.difficulty]}
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
-            {item.topics.summary}
-          </p>
+        {statusIcon[item.status]}
+      </button>
+      {/* Body selects (day view) or toggles (full plan) */}
+      <button
+        onClick={() => (selectable && onSelect ? onSelect(item) : onToggle(item))}
+        className="flex-1 min-w-0 text-left"
+      >
+        <div className="flex items-center gap-2 flex-wrap">
+          <span
+            className={`text-sm font-medium ${
+              item.status === "completed" ? "line-through text-slate-400" : "text-slate-800"
+            }`}
+          >
+            {item.topics.title}
+          </span>
+          <span className={`text-xs px-1.5 py-0.5 rounded-full ${difficultyColor[item.topics.difficulty]}`}>
+            {difficultyLabel[item.topics.difficulty]}
+          </span>
         </div>
+        <p className="text-xs text-slate-500 mt-0.5 leading-relaxed line-clamp-2">
+          {item.topics.summary}
+        </p>
+        {selectable && (
+          <span className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-primary">
+            Study
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </span>
+        )}
       </button>
       {showReschedule && item.status === "pending" && onReschedule && (
         <button
           onClick={() => onReschedule(item)}
           title="Move to next available day"
-          className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-xs text-slate-400 hover:text-indigo-600 px-2 py-1 rounded-lg hover:bg-indigo-50 flex items-center gap-1"
+          className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity text-xs text-slate-400 hover:text-indigo-600 px-2 py-1 rounded-lg hover:bg-indigo-50 flex items-center gap-1"
         >
           <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
           </svg>
           Next day
         </button>
-      )}
-      {enableChat && item.topics.id && (
-        <TopicStudyTools topicId={item.topics.id} isPaid={!!isPaid} />
       )}
     </div>
   );
@@ -153,6 +162,7 @@ export default function PlanView({
   const [activeTab, setActiveTab] = useState<string>("all");
   const [rescheduling, setRescheduling] = useState(false);
   const [rescheduleError, setRescheduleError] = useState<string | null>(null);
+  const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
 
   async function toggleStatus(item: PlanItem) {
     const next: Status = item.status === "completed" ? "pending" : "completed";
@@ -230,22 +240,26 @@ export default function PlanView({
     const allTotal = dayItems.length;
     const allCompleted = dayItems.filter((i) => i.status === "completed").length;
 
+    const selectedItem =
+      filteredItems.find((i) => i.topics.id === selectedTopicId) ?? filteredItems[0] ?? null;
+
     return (
       <div>
+        {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2.5">
             <h2 className="text-lg font-semibold text-slate-800">
               {formatDate(initialDate)}
             </h2>
             {isToday(initialDate) && (
-              <span className="text-xs bg-indigo-600 text-white px-2 py-0.5 rounded-full font-medium">
+              <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded-full font-medium">
                 Today
               </span>
             )}
           </div>
           <Link
             href={`/plans/${planId}`}
-            className="text-sm px-3 py-1.5 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-colors font-medium"
+            className="text-sm px-3 py-1.5 border border-border rounded-xl text-slate-600 hover:bg-accent transition-colors font-medium"
           >
             Full plan →
           </Link>
@@ -266,72 +280,86 @@ export default function PlanView({
           </Link>
         )}
 
-
-        {dayDocs.length > 0 && (
-          <div className="flex gap-1 mb-5 p-1 bg-slate-100 rounded-xl w-fit max-w-full overflow-x-auto">
-            <button
-              onClick={() => setActiveTab("all")}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
-                activeTab === "all"
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-500 hover:text-slate-700"
-              }`}
-            >
-              All
-              <span className="ml-1.5 text-xs text-slate-400">
-                {allCompleted}/{allTotal}
-              </span>
-            </button>
-            {dayDocs.map((doc) => {
-              const docItems = dayItems.filter((i) => i.topics.document_id === doc.id);
-              const docDone = docItems.filter((i) => i.status === "completed").length;
-              const shortName = doc.filename.replace(/\.pdf$/i, "").slice(0, 22);
-              return (
+        {/* Two columns: topic list (left) + study panel (right) */}
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(360px,420px)] gap-6 items-start">
+          <div>
+            {dayDocs.length > 0 && (
+              <div className="flex gap-1 mb-4 p-1 bg-muted rounded-xl w-fit max-w-full overflow-x-auto">
                 <button
-                  key={doc.id}
-                  onClick={() => setActiveTab(doc.id)}
+                  onClick={() => setActiveTab("all")}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
-                    activeTab === doc.id
-                      ? "bg-white text-slate-900 shadow-sm"
-                      : "text-slate-500 hover:text-slate-700"
+                    activeTab === "all" ? "bg-background text-slate-900 shadow-sm" : "text-muted-foreground hover:text-slate-700"
                   }`}
                 >
-                  {shortName}
-                  <span className="ml-1.5 text-xs text-slate-400">
-                    {docDone}/{docItems.length}
-                  </span>
+                  All
+                  <span className="ml-1.5 text-xs text-slate-400">{allCompleted}/{allTotal}</span>
                 </button>
-              );
-            })}
-          </div>
-        )}
+                {dayDocs.map((doc) => {
+                  const docItems = dayItems.filter((i) => i.topics.document_id === doc.id);
+                  const docDone = docItems.filter((i) => i.status === "completed").length;
+                  const shortName = doc.filename.replace(/\.pdf$/i, "").slice(0, 22);
+                  return (
+                    <button
+                      key={doc.id}
+                      onClick={() => setActiveTab(doc.id)}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+                        activeTab === doc.id ? "bg-background text-slate-900 shadow-sm" : "text-muted-foreground hover:text-slate-700"
+                      }`}
+                    >
+                      {shortName}
+                      <span className="ml-1.5 text-xs text-slate-400">{docDone}/{docItems.length}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
-        <div className="mb-6">
-          <div className="flex justify-between text-sm mb-1.5">
-            <span className="text-slate-500">{completed} of {total} done</span>
-            <span className="font-semibold text-slate-700">{progress}%</span>
+            <div className="mb-5">
+              <div className="flex justify-between text-sm mb-1.5">
+                <span className="text-slate-500">{completed} of {total} done</span>
+                <span className="font-semibold text-slate-700">{progress}%</span>
+              </div>
+              <div className="h-2.5 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-brand-gradient rounded-full transition-all duration-300"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            </div>
+
+            {filteredItems.length === 0 ? (
+              <p className="text-sm text-slate-400 text-center py-10">No topics for this filter.</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {filteredItems.map((item) => (
+                  <TopicCard
+                    key={item.id}
+                    item={item}
+                    onToggle={toggleStatus}
+                    selectable
+                    selected={selectedItem?.id === item.id}
+                    onSelect={(it) => setSelectedTopicId(it.topics.id)}
+                  />
+                ))}
+              </div>
+            )}
+
+            <p className="text-xs text-slate-400 mt-4">
+              Click the circle to mark a topic done · click a topic to study it
+            </p>
           </div>
-          <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-indigo-600 rounded-full transition-all duration-300"
-              style={{ width: `${progress}%` }}
-            />
+
+          {/* Study panel */}
+          <div className="lg:sticky lg:top-6">
+            {selectedItem ? (
+              <TopicStudyPanel topic={selectedItem.topics} isPaid={isPaid} />
+            ) : (
+              <div className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-slate-400">
+                Select a topic to study it — summary, tutor chat, flashcards, and quizzes.
+              </div>
+            )}
           </div>
         </div>
-
-        {filteredItems.length === 0 ? (
-          <p className="text-sm text-slate-400 text-center py-10">No topics for this filter.</p>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {filteredItems.map((item) => (
-              <TopicCard key={item.id} item={item} onToggle={toggleStatus} enableChat isPaid={isPaid} />
-            ))}
-          </div>
-        )}
-
-        <p className="text-xs text-slate-400 mt-6">
-          Click a topic to mark it done or undone
-        </p>
       </div>
     );
   }

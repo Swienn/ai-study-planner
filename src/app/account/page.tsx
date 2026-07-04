@@ -67,10 +67,11 @@ export default async function AccountPage() {
 
   return (
     <AppLayout>
-      <div className="p-6 max-w-lg flex flex-col gap-6">
-        <h1 className="text-2xl font-bold text-slate-900">Account</h1>
+      <div className="p-6 pb-16 max-w-5xl mx-auto">
+        <h1 className="text-2xl font-bold text-slate-900 mb-6">Account</h1>
 
-        {/* Plan card */}
+        <div className="flex flex-col gap-6">
+        {/* Plan card — full width */}
         <section className="p-5 border border-slate-200 rounded-xl bg-white">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-semibold text-slate-800">Current plan</h2>
@@ -113,6 +114,7 @@ export default async function AccountPage() {
           )}
         </section>
 
+        <div className="grid gap-6 lg:grid-cols-2 items-start">
         {/* Account info */}
         <section className="p-5 border border-slate-200 rounded-xl bg-white">
           <h2 className="text-base font-semibold text-slate-800 mb-3">Account info</h2>
@@ -125,6 +127,7 @@ export default async function AccountPage() {
           </div>
         </section>
 
+        <div className="flex flex-col gap-6">
         {/* Notifications */}
         <section className="p-5 border border-slate-200 rounded-xl bg-white">
           <h2 className="text-base font-semibold text-slate-800 mb-1">Email notifications</h2>
@@ -145,9 +148,12 @@ export default async function AccountPage() {
             <DeleteAccountButton />
           </div>
         </section>
+        </div>
+        </div>
+        </div>
 
         {/* Legal links */}
-        <div className="flex gap-4 text-xs text-slate-400">
+        <div className="mt-6 flex gap-4 text-xs text-slate-400">
           <Link href="/privacy" className="hover:text-slate-600 transition-colors">Privacy policy</Link>
           <Link href="/terms" className="hover:text-slate-600 transition-colors">Terms of service</Link>
         </div>

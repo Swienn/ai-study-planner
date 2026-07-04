@@ -41,7 +41,7 @@ export default async function ExamModePage({ params }: { params: Promise<{ id: s
 
   return (
     <AppLayout activePlanId={id}>
-      <div className="p-6 max-w-2xl">
+      <div className="p-6 pb-16 max-w-2xl mx-auto">
         <div className="flex items-center justify-between mb-4">
           <Link href={`/plans/${id}`} className="text-sm text-slate-400 hover:text-slate-700 transition-colors">
             ← Back to plan

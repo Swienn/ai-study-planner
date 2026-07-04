@@ -161,6 +161,7 @@ plan_documents plan_id, document_id
 plan_items    id, plan_id, topic_id, date, status(pending/completed/skipped), completed_at(nullable)
 agenda_blocks id, user_id, date, title
 chat_messages id, topic_id, user_id, role(user/assistant), content, created_at
+course_chat_messages id, course_id, user_id, role(user/assistant), content, created_at
 flashcards    id, topic_id, user_id, front, back, position
 quiz_questions id, topic_id, user_id, question, options(jsonb), correct_index, position
 error_logs    id, user_id(nullable), source(client/server), route, message, stack, created_at
@@ -181,6 +182,7 @@ Migrations already applied:
 - `supabase/migration_error_logs.sql` — error_logs table, RLS-locked to service role (Phase 10.7)
 - `supabase/migration_study_experience.sql` — plan_items.completed_at, topics.study_guide, chat_messages table (Phase 8)
 - `supabase/migration_flashcards_quizzes.sql` — flashcards + quiz_questions tables, RLS per-user (Phase 9)
+- `supabase/migration_course_chat.sql` — course_chat_messages table (per-course "Ask Claude", alongside per-topic chat)
 
 ### Key patterns
 
@@ -315,9 +317,9 @@ For local webhook testing run `stripe listen --forward-to localhost:3000/api/str
 - 10.6 ✅ Domain studytool.academy on Namecheap, pointed to Vercel (auto SSL), auto-renew on, contacts verified
 - 10.7 ✅ Error logging / observability — `error_logs` table (`migration_error_logs.sql`, RLS-locked to service role); `src/lib/errorLog.ts` `logError()` helper (never throws); client boundaries `src/app/error.tsx` + `global-error.tsx` POST to `/api/errors`; server routes log via `logError` (e.g. upload extraction failure). View errors in Supabase → Table editor → `error_logs` (newest first).
 
-### Phase 11 — UI Redesign
-- 11.1 🔲 Coordinate with external contributor on colour system and component structure before any file changes to avoid conflicts
-- 11.2 🔲 Implement new design — replace current indigo/slate palette and card layouts; keep logic components untouched
+### Phase 11 — UI Redesign (in progress, branch `ui-redesign`)
+- 11.1 ✅ Solo with Claude (external contributor is out) — direction: **shadcn/ui** (base-nova/Base UI), clean & rounded, gradient accent (indigo→violet→fuchsia), NotebookLM-inspired, keep the existing sidebar.
+- 11.2 ✅ All pages migrated to shadcn/ui + brand theme. Foundation: shadcn init, brand theme in `globals.css` (indigo `--primary`, `--radius` 0.85rem, `.bg-brand-gradient`/`.text-brand-gradient` utilities), gradient `Logo` + `icon.svg` favicon, mobile-responsive sidebar (`SidebarShell` → hamburger + drawer). Pages: landing, login, signup, forgot/reset/verify, topbar, sidebar, calendar, plan day view (two-column: topic list + study panel), course page (two-column + course tutor), dashboard (card grid), account, courses/new, onboarding, privacy, terms, loading skeletons. **Not yet merged to `main`** — verify on the `ui-redesign` branch, apply new migrations, then merge.
 
 ### Phase 12 — User Tutorial / Walkthrough
 - 12.1 🔲 In-app "how to use StudyTool" tutorial — guided walkthrough of the full flow (create course → upload PDF → generate plan → study day-by-day → calendar). **Do this AFTER Phase 11 (UI redesign)** so it matches the final UI and doesn't need redoing.
