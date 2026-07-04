@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Logo from "@/components/Logo";
 
 export const metadata = { title: "Privacy Policy — StudyTool" };
 
@@ -7,9 +8,9 @@ export default function PrivacyPage() {
 
   return (
     <main className="max-w-2xl mx-auto px-6 py-16 text-slate-700">
-      <Link href="/" className="text-sm text-slate-400 hover:text-slate-700 transition-colors mb-8 inline-block">
-        ← Back to StudyTool
-      </Link>
+      <div className="mb-8">
+        <Logo size="sm" href="/" />
+      </div>
 
       <h1 className="text-3xl font-bold text-slate-900 mb-2">Privacy Policy</h1>
       <p className="text-sm text-slate-400 mb-10">Last updated: {updated}</p>
