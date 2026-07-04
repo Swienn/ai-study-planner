@@ -34,9 +34,20 @@ reachable.
 
 ## CI
 
-Not wired into `.github/workflows/ci.yml` yet. To add it, create a job that:
-1. `npm ci` → `npx playwright install --with-deps chromium`
-2. sets `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` (repo
-   variables — they're public), and optionally `TEST_USER_EMAIL/PASSWORD`
-   (secrets) to also run the authenticated specs
-3. `npm run test:e2e`
+Wired into `.github/workflows/ci.yml` as the **`e2e`** job — it runs alongside
+lint + unit tests on every push/PR to `main`. The job self-skips (stays green)
+unless the Supabase config is present, so it never blocks a merge before the
+secrets are set.
+
+Add these under **GitHub → Settings → Secrets and variables → Actions →
+Secrets** (repository secrets):
+
+| Secret | Needed for |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | the job to run at all (dev server boot) |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | same |
+| `TEST_USER_EMAIL` | the authenticated specs (skipped otherwise) |
+| `TEST_USER_PASSWORD` | same |
+
+Use a throwaway account with a **confirmed** email. Without the first two the
+whole job skips; without the last two only the authenticated specs skip.
