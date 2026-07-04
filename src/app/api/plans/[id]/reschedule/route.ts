@@ -28,7 +28,7 @@ export async function POST(
   if (!plan) return Response.json({ error: "Plan not found" }, { status: 404 });
 
   const todayStr = new Date().toISOString().split("T")[0];
-  const startStr = addDays(todayStr, 1);
+  const tomorrow = addDays(todayStr, 1);
 
   if (plan.exam_date <= todayStr) {
     return Response.json({ error: "Exam date has passed" }, { status: 400 });
@@ -37,7 +37,7 @@ export async function POST(
   // Fetch ALL pending items (including overdue past days)
   const { data: pendingItems } = await supabase
     .from("plan_items")
-    .select("id, topic_id, topics(id, position, minutes, document_id)")
+    .select("id, topic_id, date, topics(id, position, minutes, document_id)")
     .eq("plan_id", id)
     .eq("status", "pending")
     .order("date");
@@ -45,6 +45,13 @@ export async function POST(
   if (!pendingItems || pendingItems.length === 0) {
     return Response.json({ message: "No pending topics to reschedule" });
   }
+
+  // Reschedule from the plan's own start when it hasn't begun yet: if the
+  // earliest pending item is still in the future, keep that as the start date
+  // rather than dragging everything forward to tomorrow. Overdue plans (earliest
+  // pending already in the past) still restart from tomorrow.
+  const earliestPending = pendingItems[0].date as string;
+  const startStr = earliestPending > tomorrow ? earliestPending : tomorrow;
 
   // Preserve order: sort by current date then topic position
   const topics: TopicWithTime[] = pendingItems.map((item) => {
