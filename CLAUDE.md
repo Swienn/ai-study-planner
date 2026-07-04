@@ -126,6 +126,7 @@ src/
 │   ├── terms/                    → terms of service page
 │   ├── verify-email/             → gate for unverified users with resend button
 │   ├── plans/[id]/               → day-by-day plan view, progress tracking
+│   ├── tutorial/                 → "How it works" 5-step walkthrough (linked from sidebar footer)
 │   ├── login/ signup/            → auth pages (with Google OAuth button)
 │   └── page.tsx                  → landing page
 ├── components/
@@ -322,4 +323,4 @@ For local webhook testing run `stripe listen --forward-to localhost:3000/api/str
 - 11.2 ✅ All pages migrated to shadcn/ui + brand theme. Foundation: shadcn init, brand theme in `globals.css` (indigo `--primary`, `--radius` 0.85rem, `.bg-brand-gradient`/`.text-brand-gradient` utilities), gradient `Logo` + `icon.svg` favicon, mobile-responsive sidebar (`SidebarShell` → hamburger + drawer). Pages: landing, login, signup, forgot/reset/verify, topbar, sidebar, calendar, plan day view (two-column: topic list + study panel), course page (two-column + course tutor), dashboard (card grid), account, courses/new, onboarding, privacy, terms, loading skeletons. **Not yet merged to `main`** — verify on the `ui-redesign` branch, apply new migrations, then merge.
 
 ### Phase 12 — User Tutorial / Walkthrough
-- 12.1 🔲 In-app "how to use StudyTool" tutorial — guided walkthrough of the full flow (create course → upload PDF → generate plan → study day-by-day → calendar). **Do this AFTER Phase 11 (UI redesign)** so it matches the final UI and doesn't need redoing.
+- 12.1 ✅ In-app "How it works" tutorial at `/tutorial` — a designed 5-step walkthrough of the full flow (create course → upload PDF → generate plan → study day-by-day → calendar), styled with the new theme; linked from the sidebar footer. New users (no courses) are pointed to `/onboarding` instead.
